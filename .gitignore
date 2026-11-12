@@ -1,0 +1,4 @@
+# API do Compras: segredos e banco ficam fora do Git
+public_html/compras/api/config.php
+public_html/compras/api/dados/*
+!public_html/compras/api/dados/.htaccess

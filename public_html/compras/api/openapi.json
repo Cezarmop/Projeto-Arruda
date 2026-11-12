@@ -1,0 +1,1323 @@
+{
+ "openapi": "3.0.3",
+ "info": {
+  "title": "API REST do Controle de Compras (Projeto Arruda)",
+  "version": "1.0.0",
+  "description": "Substitui o socket da turma por HTTP. Os setores enviam XML ao Compras (POST) e buscam o que o Compras publica (GET). Toda rota protegida usa `Authorization: Bearer <chave>`; a chave identifica o setor."
+ },
+ "servers": [
+  {
+   "url": "/compras/api",
+   "description": "Mesmo dominio da tela do Compras"
+  }
+ ],
+ "tags": [
+  {
+   "name": "Geral"
+  },
+  {
+   "name": "Entrada",
+   "description": "Setores enviam ao Compras"
+  },
+  {
+   "name": "Estoque busca",
+   "description": "O que o Compras publica para o Estoque"
+  },
+  {
+   "name": "Painel",
+   "description": "Uso interno da tela do Compras"
+  }
+ ],
+ "paths": {
+  "/v1": {
+   "get": {
+    "tags": [
+     "Geral"
+    ],
+    "summary": "Lista as rotas",
+    "responses": {
+     "200": {
+      "description": "Indice."
+     }
+    }
+   }
+  },
+  "/v1/saude": {
+   "get": {
+    "tags": [
+     "Geral"
+    ],
+    "summary": "Estado da API e das integracoes",
+    "responses": {
+     "200": {
+      "description": "Estado."
+     }
+    }
+   }
+  },
+  "/v1/openapi.json": {
+   "get": {
+    "tags": [
+     "Geral"
+    ],
+    "summary": "Este contrato",
+    "responses": {
+     "200": {
+      "description": "OpenAPI 3."
+     }
+    }
+   }
+  },
+  "/v1/mensagens": {
+   "post": {
+    "tags": [
+     "Entrada"
+    ],
+    "summary": "Recebe qualquer XML suportado",
+    "description": "O tipo e descoberto pela raiz e namespace: confirmacaoRecebimento, respostaDisponibilidade, estoque v2 (saldo), avisoPagamento, respostaPendencias. Contratos com XSD local sao validados. Quem envia: Estoque ou Financeiro.",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "description": "XML do contrato, UTF-8.",
+     "content": {
+      "application/xml": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Mensagem ja recebida antes (idempotente); nada mudou.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "202": {
+      "description": "Recebida; o Compras aplica na proxima leitura da caixa de entrada.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "400": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "413": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "415": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "422": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/confirmacoes-recebimento": {
+   "post": {
+    "tags": [
+     "Entrada"
+    ],
+    "summary": "confirmacao-recebimento-v1",
+    "description": "Validado contra contratos/confirmacao-recebimento-v1.xsd. Quem envia: Estoque.",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "description": "XML do contrato, UTF-8.",
+     "content": {
+      "application/xml": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Mensagem ja recebida antes (idempotente); nada mudou.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "202": {
+      "description": "Recebida; o Compras aplica na proxima leitura da caixa de entrada.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "400": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "413": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "415": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "422": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/respostas-disponibilidade": {
+   "post": {
+    "tags": [
+     "Entrada"
+    ],
+    "summary": "respostaDisponibilidade",
+    "description": "Validado contra contratos/disponibilidade-estoque.xsd. Quem envia: Estoque.",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "description": "XML do contrato, UTF-8.",
+     "content": {
+      "application/xml": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Mensagem ja recebida antes (idempotente); nada mudou.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "202": {
+      "description": "Recebida; o Compras aplica na proxima leitura da caixa de entrada.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "400": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "413": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "415": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "422": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/saldos-estoque": {
+   "post": {
+    "tags": [
+     "Entrada"
+    ],
+    "summary": "Saldo no XML v2 do Estoque",
+    "description": "Raiz <estoque versao=\"2\">. Quem envia: Estoque.",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "description": "XML do contrato, UTF-8.",
+     "content": {
+      "application/xml": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Mensagem ja recebida antes (idempotente); nada mudou.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "202": {
+      "description": "Recebida; o Compras aplica na proxima leitura da caixa de entrada.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "400": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "413": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "415": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "422": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/avisos-pagamento": {
+   "post": {
+    "tags": [
+     "Entrada"
+    ],
+    "summary": "avisoPagamento (XML ou JSON)",
+    "description": "XML urn:finanweb:aviso-pagamento:1.0 ou o mesmo JSON do GET /api/v1/avisos-pagamento do Finanweb. Quem envia: Financeiro. Opcional: o Compras tambem busca os avisos sozinho.",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/xml": {
+       "schema": {
+        "type": "string"
+       }
+      },
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AvisoPagamento"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Mensagem ja recebida antes (idempotente); nada mudou.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "202": {
+      "description": "Recebida; o Compras aplica na proxima leitura da caixa de entrada.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "400": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "413": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "415": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "422": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/respostas-pendencias": {
+   "post": {
+    "tags": [
+     "Entrada"
+    ],
+    "summary": "respostaPendencias",
+    "description": "Namespace urn:finanweb:pendencias-fornecedor:1.0. Quem envia: Financeiro.",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "description": "XML do contrato, UTF-8.",
+     "content": {
+      "application/xml": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Mensagem ja recebida antes (idempotente); nada mudou.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "202": {
+      "description": "Recebida; o Compras aplica na proxima leitura da caixa de entrada.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "400": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "413": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "415": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "422": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/recebimentos": {
+   "get": {
+    "tags": [
+     "Estoque busca"
+    ],
+    "summary": "Lista recebimento-v1 publicados pelo Compras",
+    "description": "Paginacao por cursor: guarde `ultimo` e mande como `desde` na proxima chamada.",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "desde",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0
+      }
+     },
+     {
+      "name": "limite",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 200,
+       "default": 50
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Publicacoes com seq > desde.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ListaPublicacoes"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/recebimentos/{seq}": {
+   "get": {
+    "tags": [
+     "Estoque busca"
+    ],
+    "summary": "Um recebimento-v1 em XML",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "seq",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "XML publicado.",
+      "content": {
+       "application/xml": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "404": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/previsoes-entrega": {
+   "get": {
+    "tags": [
+     "Estoque busca"
+    ],
+    "summary": "Lista previsao-entrega-v1 publicados pelo Compras",
+    "description": "Paginacao por cursor: guarde `ultimo` e mande como `desde` na proxima chamada.",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "desde",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0
+      }
+     },
+     {
+      "name": "limite",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 200,
+       "default": 50
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Publicacoes com seq > desde.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ListaPublicacoes"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/previsoes-entrega/{seq}": {
+   "get": {
+    "tags": [
+     "Estoque busca"
+    ],
+    "summary": "Um previsao-entrega-v1 em XML",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "seq",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "XML publicado.",
+      "content": {
+       "application/xml": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "404": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/consultas-disponibilidade": {
+   "get": {
+    "tags": [
+     "Estoque busca"
+    ],
+    "summary": "Lista consultaDisponibilidade publicados pelo Compras",
+    "description": "Paginacao por cursor: guarde `ultimo` e mande como `desde` na proxima chamada.",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "desde",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0
+      }
+     },
+     {
+      "name": "limite",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 200,
+       "default": 50
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Publicacoes com seq > desde.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ListaPublicacoes"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/consultas-disponibilidade/{seq}": {
+   "get": {
+    "tags": [
+     "Estoque busca"
+    ],
+    "summary": "Um consultaDisponibilidade em XML",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "seq",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "XML publicado.",
+      "content": {
+       "application/xml": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "404": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/caixa-entrada": {
+   "get": {
+    "tags": [
+     "Painel"
+    ],
+    "summary": "Mensagens recebidas pelo Compras",
+    "description": "Tambem dispara, no maximo a cada `intervalo_avisos` segundos, a busca de avisos de pagamento no Finanweb.",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "desde",
+      "in": "query",
+      "schema": {
+       "type": "integer",
+       "minimum": 0,
+       "default": 0
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Mensagens com seq > desde (ate 100).",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CaixaEntrada"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/publicacoes": {
+   "post": {
+    "tags": [
+     "Painel"
+    ],
+    "summary": "Publica XML para o Estoque buscar",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "required": [
+         "tipo",
+         "xml"
+        ],
+        "properties": {
+         "tipo": {
+          "type": "string",
+          "enum": [
+           "recebimento",
+           "previsao-entrega",
+           "consulta-disponibilidade"
+          ]
+         },
+         "xml": {
+          "type": "string"
+         },
+         "referencia": {
+          "type": "string",
+          "maxLength": 100
+         }
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Ja publicado (mesmo XML).",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "201": {
+      "description": "Publicado.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Recebida"
+        }
+       }
+      }
+     },
+     "400": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "401": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "403": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "415": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "422": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/financeiro/compras": {
+   "post": {
+    "tags": [
+     "Painel"
+    ],
+    "summary": "Proxy para POST /api/v1/compras do Finanweb",
+    "description": "Corpo e respostas iguais aos do Finanweb (schema Compra). A chave do Finanweb fica no servidor.",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object"
+       }
+      }
+     }
+    },
+    "responses": {
+     "202": {
+      "description": "Repassado do Finanweb."
+     },
+     "4XX": {
+      "description": "Repassado do Finanweb."
+     },
+     "502": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "503": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/financeiro/pendencias": {
+   "get": {
+    "tags": [
+     "Painel"
+    ],
+    "summary": "Proxy para GET /api/v1/pendencias do Finanweb",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "parameters": [
+     {
+      "name": "origem",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "documento",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "id",
+      "in": "query",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Repassado do Finanweb (RespostaPendencias)."
+     },
+     "4XX": {
+      "description": "Repassado do Finanweb."
+     },
+     "502": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "503": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/financeiro/avisos-pagamento/buscar": {
+   "post": {
+    "tags": [
+     "Painel"
+    ],
+    "summary": "Busca agora os avisos no Finanweb",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Busca feita; novos avisos vao para a caixa de entrada."
+     },
+     "502": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "503": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/estoque/xml": {
+   "get": {
+    "tags": [
+     "Painel"
+    ],
+    "summary": "Proxy para GET /api/xml do Estoque (saldo XML v2)",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Repassado do Estoque.",
+      "content": {
+       "application/xml": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "502": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "503": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "Painel"
+    ],
+    "summary": "Proxy para POST /api/xml do Estoque (importa XML v2)",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "description": "XML v2 do Estoque.",
+     "content": {
+      "application/xml": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Repassado do Estoque."
+     },
+     "4XX": {
+      "description": "Repassado do Estoque."
+     },
+     "502": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "503": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  },
+  "/v1/estoque/xml/validar": {
+   "post": {
+    "tags": [
+     "Painel"
+    ],
+    "summary": "Proxy para POST /api/xml/validar do Estoque",
+    "security": [
+     {
+      "chaveSetor": []
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "description": "XML v2 do Estoque.",
+     "content": {
+      "application/xml": {
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Repassado do Estoque."
+     },
+     "4XX": {
+      "description": "Repassado do Estoque."
+     },
+     "502": {
+      "$ref": "#/components/responses/Erro"
+     },
+     "503": {
+      "$ref": "#/components/responses/Erro"
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "securitySchemes": {
+   "chaveSetor": {
+    "type": "http",
+    "scheme": "bearer",
+    "description": "Chave emitida pelo Compras para cada setor (config.php)."
+   }
+  },
+  "responses": {
+   "Erro": {
+    "description": "Erro",
+    "content": {
+     "application/json": {
+      "schema": {
+       "$ref": "#/components/schemas/Erro"
+      }
+     }
+    }
+   }
+  },
+  "schemas": {
+   "Erro": {
+    "type": "object",
+    "required": [
+     "ok",
+     "erro"
+    ],
+    "properties": {
+     "ok": {
+      "type": "boolean",
+      "enum": [
+       false
+      ]
+     },
+     "erro": {
+      "type": "string"
+     },
+     "detalhes": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "Recebida": {
+    "type": "object",
+    "required": [
+     "ok",
+     "seq"
+    ],
+    "properties": {
+     "ok": {
+      "type": "boolean"
+     },
+     "seq": {
+      "type": "integer"
+     },
+     "tipo": {
+      "type": "string"
+     },
+     "duplicada": {
+      "type": "boolean"
+     },
+     "mensagem": {
+      "type": "string"
+     }
+    }
+   },
+   "ListaPublicacoes": {
+    "type": "object",
+    "properties": {
+     "tipo": {
+      "type": "string"
+     },
+     "desde": {
+      "type": "integer"
+     },
+     "ultimo": {
+      "type": "integer"
+     },
+     "itens": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "seq": {
+         "type": "integer"
+        },
+        "referencia": {
+         "type": "string",
+         "nullable": true
+        },
+        "publicadoEm": {
+         "type": "string",
+         "format": "date-time"
+        },
+        "xml": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   },
+   "CaixaEntrada": {
+    "type": "object",
+    "properties": {
+     "desde": {
+      "type": "integer"
+     },
+     "ultimo": {
+      "type": "integer"
+     },
+     "itens": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "seq": {
+         "type": "integer"
+        },
+        "tipo": {
+         "type": "string",
+         "enum": [
+          "confirmacao-recebimento",
+          "resposta-disponibilidade",
+          "saldo-estoque",
+          "aviso-pagamento",
+          "resposta-pendencias"
+         ]
+        },
+        "formato": {
+         "type": "string",
+         "enum": [
+          "xml",
+          "json"
+         ]
+        },
+        "de": {
+         "type": "string"
+        },
+        "referencia": {
+         "type": "string",
+         "nullable": true
+        },
+        "recebidoEm": {
+         "type": "string",
+         "format": "date-time"
+        },
+        "conteudo": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "financeiro": {
+      "type": "object",
+      "description": "Resultado da busca automatica de avisos no Finanweb."
+     }
+    }
+   },
+   "AvisoPagamento": {
+    "type": "object",
+    "required": [
+     "id",
+     "origem",
+     "referencia",
+     "situacao",
+     "valor"
+    ],
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "dataAviso": {
+      "type": "string",
+      "format": "date"
+     },
+     "origem": {
+      "type": "string"
+     },
+     "referencia": {
+      "type": "string"
+     },
+     "cpf": {
+      "type": "string",
+      "nullable": true
+     },
+     "situacao": {
+      "type": "string",
+      "enum": [
+       "PAGO",
+       "CANCELADO"
+      ]
+     },
+     "favorecido": {
+      "type": "object",
+      "properties": {
+       "nome": {
+        "type": "string"
+       },
+       "documento": {
+        "type": "string",
+        "nullable": true
+       }
+      }
+     },
+     "valor": {
+      "type": "number",
+      "minimum": 0
+     },
+     "dataPagamento": {
+      "type": "string",
+      "format": "date",
+      "nullable": true
+     },
+     "geradoEm": {
+      "type": "string",
+      "format": "date-time"
+     }
+    }
+   }
+  }
+ }
+}

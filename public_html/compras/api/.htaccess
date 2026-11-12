@@ -1,0 +1,19 @@
+# API REST do Compras: tudo passa pelo index.php (Apache ou LiteSpeed da Hostinger)
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # repassa o cabecalho Authorization para o PHP (alguns servidores o descartam)
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+  # bloqueia arquivos internos
+  RewriteRule ^(config(\.exemplo)?\.php|lib\.php|dados/.*)$ - [F,L]
+  # demais caminhos que nao sao arquivos vao para o roteador
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+<FilesMatch "^(config\.php|config\.exemplo\.php|lib\.php|.*\.sqlite.*)$">
+  Require all denied
+</FilesMatch>
