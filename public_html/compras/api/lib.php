@@ -6,6 +6,7 @@
 declare(strict_types=1);
 
 const VERSAO_API = '1.0.0';
+const ORIGEM_SETOR = 'compras';   // nome do setor no Finanweb e no servidor da turma
 const DIR_CONTRATOS = __DIR__ . '/../contratos';
 
 /** Erro que vira resposta HTTP { ok:false, erro } com o status informado. */

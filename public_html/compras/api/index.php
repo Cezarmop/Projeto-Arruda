@@ -265,7 +265,8 @@ function buscarAvisosFinanceiro(bool $forcar): array
     kvGravar('fin_avisos_proxima', (string)($agora + (int)($cfg['intervalo_avisos'] ?? 60)));
 
     $desde = kvLer('fin_avisos_desde');
-    $url = rtrim($cfg['url'], '/') . '/api/v1/avisos-pagamento' . ($desde ? '?desde=' . rawurlencode($desde) : '');
+    $q = ['origem' => ORIGEM_SETOR] + ($desde ? ['desde' => $desde] : []);
+    $url = rtrim($cfg['url'], '/') . '/api/v1/avisos-pagamento?' . http_build_query($q);
     try {
         $r = chamarExterno('GET', $url, null, ['Authorization: Bearer ' . $cfg['chave'], 'Accept: application/json']);
     } catch (ErroApi $e) {
@@ -323,8 +324,9 @@ function rFinPendencias(): void
 {
     autenticar(['painel']);
     $cfg = cfgFinanceiro();
-    $q = array_intersect_key($_GET, array_flip(['origem', 'documento', 'id']));
-    $url = rtrim($cfg['url'], '/') . '/api/v1/pendencias' . ($q ? '?' . http_build_query($q) : '');
+    // a origem e sempre o proprio setor (o Finanweb recusa origem de outro setor com 403)
+    $q = ['origem' => ORIGEM_SETOR] + array_intersect_key($_GET, array_flip(['documento', 'id']));
+    $url = rtrim($cfg['url'], '/') . '/api/v1/pendencias?' . http_build_query($q);
     repassar(chamarExterno('GET', $url, null, ['Authorization: Bearer ' . $cfg['chave'], 'Accept: application/json']));
 }
 

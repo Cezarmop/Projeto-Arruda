@@ -31,6 +31,25 @@ bloquear CORS, e para outro setor *chamar* o Compras é preciso ter um endereço
 | recebimento-v1, previsões, consulta de disponibilidade | arquivo para o ID do Estoque | publicados; o Estoque busca em `GET /v1/...` |
 | Confirmação, resposta de disponibilidade, saldo | arquivo do Estoque | o Estoque envia `POST /v1/mensagens` |
 
+## Documentação para os outros setores
+
+No mesmo modelo do Finanweb ([contratos](https://finanwebsistema.vercel.app/contratos) e [registro](https://finanwebsistema.vercel.app/registro)):
+
+- `public_html/compras/contratos/`: **Contratos de integração**, com as mensagens por setor, como integrar (REST e socket), as regras e uma referência rápida.
+- `public_html/compras/registro/`: **Registry de serviços**, com a lista de serviços do Compras (endpoint, operação, contrato, para quem). O catálogo fica em `registro/servicos.json`.
+
+Publicadas em `https://<seu-dominio>/compras/contratos/` e `/compras/registro/`. As páginas mostram a base da API do domínio onde estiverem.
+
+## Integração com o Financeiro (Finanweb)
+
+O Compras chama a API do Finanweb com a chave que o Financeiro emitiu para o setor `compras`, guardada só no `config.php` (`financeiro.chave`):
+
+- contas a pagar: `POST /api/v1/compras`;
+- pendências: `GET /api/v1/pendencias?origem=compras`;
+- avisos de pagamento: `GET /api/v1/avisos-pagamento?origem=compras&desde=...`, buscados no máximo uma vez por minuto (o limite do Finanweb é 60 chamadas por minuto por setor).
+
+O servidor sempre manda `origem=compras`.
+
 ## Rotas da API do Compras
 
 Base: `https://<seu-dominio>/compras/api` · Autenticação: `Authorization: Bearer <chave do setor>`

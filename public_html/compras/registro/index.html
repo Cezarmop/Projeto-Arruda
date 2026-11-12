@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registry de serviços · Compras</title>
+<meta name="description" content="Serviços que o setor de Compras oferece e consome, com endpoint, operação e contrato">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<style>
+  :root{color-scheme:light;--ink:#14283c;--accent:#f2b705;--bg:#f3f5f4;--panel:#fff;--text:#1b2430;--muted:#5e6b78;--border:#d9dfe3;--line:#e9edf0;--link:#2f6db3;--code:#eef1f3;--ok:#1f7a4d}
+  @media (prefers-color-scheme: dark){:root{color-scheme:dark;--ink:#0d1a27;--bg:#10161d;--panel:#161f29;--text:#e4e9ef;--muted:#9ba7b3;--border:#283545;--line:#202b37;--link:#6aa5e8;--code:#1f2a36;--ok:#5cc58f}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:15px}
+  header{background:var(--ink);color:#fff;padding:28px 20px 30px}
+  header .in,main{max-width:1100px;margin:0 auto}
+  header .mark{display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;margin-right:8px}
+  header small{color:#9fb1c3;font-size:13px}
+  h1{font-size:32px;font-stretch:87%;font-weight:700;margin:6px 0 6px;line-height:1.15}
+  header p{margin:0;color:#c9d4df;max-width:78ch}
+  header a{color:#fff}
+  main{padding:28px 20px 60px}
+  h2{font-size:21px;font-stretch:87%;margin:34px 0 10px}
+  p{margin:0 0 10px;max-width:80ch}
+  a{color:var(--link)}
+  ol,ul{padding-left:22px;max-width:80ch}
+  li{margin-bottom:6px}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:var(--code);padding:1px 5px;border-radius:4px;word-break:break-all}
+  pre{background:var(--code);padding:12px 14px;border-radius:8px;overflow:auto}
+  pre code{background:none;padding:0;word-break:normal}
+  form{display:flex;flex-wrap:wrap;gap:10px;align-items:end;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+  label{display:flex;flex-direction:column;font-size:12.5px;color:var(--muted);gap:4px}
+  input,select,button{font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)}
+  button{cursor:pointer}
+  button.pri{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .tw{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:10px}
+  table{border-collapse:collapse;width:100%;font-size:13.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:500;font-size:12.5px}
+  tr:last-child td{border-bottom:0}
+  .sit{font-size:12px;font-weight:600;color:var(--ok)}
+  .desc{font-size:12.5px;color:var(--muted)}
+  .vazio{padding:16px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header><div class="in">
+  <small><span class="mark"></span>Setor de Compras</small>
+  <h1>Registry de serviços</h1>
+  <p>Os serviços que o Compras oferece aos outros setores, com o endpoint e o contrato para chamar cada um, no mesmo modelo do <a href="https://finanwebsistema.vercel.app/registro">Registry do Financeiro</a>. Não precisa de login para consultar. As mensagens estão descritas em <a href="../contratos/">Contratos de integração</a>.</p>
+</div></header>
+<main>
+  <form id="busca" onsubmit="return false">
+    <label>Setor (para)<input id="f-setor" placeholder="estoque, financeiro"></label>
+    <label>Serviço<input id="f-servico" placeholder="recebimento"></label>
+    <label>Protocolo<select id="f-prot"><option value="">Todos</option><option>REST</option><option>SOCKET</option></select></label>
+    <button class="pri" id="b-buscar" type="submit">Buscar</button>
+    <button id="b-limpar" type="button">Limpar</button>
+  </form>
+
+  <h2>compras</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Serviço</th><th>Versão</th><th>Protocolo</th><th>Endpoint</th><th>Operação</th><th>Contrato</th><th>Para</th><th>Situação</th></tr></thead>
+    <tbody id="tb"></tbody>
+  </table></div>
+  <p class="desc" style="margin-top:8px">Endpoints REST: <code id="base-rest">…/compras/api</code> + caminho. Socket: <code id="base-sock">#compras</code>. Catálogo em JSON: <a href="servicos.json">servicos.json</a>.</p>
+
+  <h2>Serviços que o Compras consome</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Serviço</th><th>Setor</th><th>Versão</th><th>Protocolo</th><th>Endpoint</th><th>Operação</th><th>Contrato</th></tr></thead>
+    <tbody id="tb-consome"></tbody>
+  </table></div>
+
+  <h2>Chaves</h2>
+  <p>Cada setor recebe uma chave do Compras e a envia em <code>Authorization: Bearer &lt;chave&gt;</code>. Peça a sua por mensagem privada para <code>#compras</code> no servidor da turma. A chave só libera as rotas do seu setor: sem chave ou chave errada volta <code>401</code>; rota de outro setor, <code>403</code>.</p>
+
+  <h2>Como usar</h2>
+  <ol>
+    <li><strong>Encontrar:</strong> filtre por setor, serviço ou protocolo. O mesmo catálogo está em <a href="servicos.json">servicos.json</a>, para ler por programa.</li>
+    <li><strong>Ligar:</strong> use o endpoint, a operação e o contrato do resultado para chamar o serviço direto. O registry não fica no meio da chamada.</li>
+    <li><strong>Versões:</strong> uma versão nova vira outro registro. A anterior fica <code>DEPRECIADO</code> enquanto alguém usar e depois <code>DESATIVADO</code>.</li>
+  </ol>
+  <pre><code id="ex-curl"># Estoque: buscar recebimentos novos
+curl -H "Authorization: Bearer CHAVE_DO_ESTOQUE" "BASE/v1/recebimentos?desde=0"</code></pre>
+</main>
+<script>
+// base da API do Compras no próprio domínio (…/compras/registro/ -> …/compras/api)
+const BASE = new URL('../api', location.href).href.replace(/\/$/, '');
+let catalogo = null;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const link = (u, t) => u ? `<a href="${esc(u)}">${esc(t || 'abrir')}</a>` : '';
+function endpoint(s){
+  if (s.protocolo === 'REST') return BASE + s.endpoint;
+  return s.endpoint + ' @ ' + catalogo.socket.split('@')[1].trim();
+}
+function render(){
+  const fs = document.getElementById('f-setor').value.trim().toLowerCase();
+  const fn = document.getElementById('f-servico').value.trim().toLowerCase();
+  const fp = document.getElementById('f-prot').value;
+  const itens = catalogo.servicos.filter(s =>
+    (!fs || s.consumidor.toLowerCase().includes(fs)) &&
+    (!fn || s.nome.toLowerCase().includes(fn)) &&
+    (!fp || s.protocolo === fp));
+  document.getElementById('tb').innerHTML = itens.length ? itens.map(s => `<tr>
+      <td><strong>${esc(s.nome)}</strong><div class="desc">${esc(s.descricao)}</div></td>
+      <td>${esc(s.versao)}</td><td>${esc(s.protocolo)}</td>
+      <td><code>${esc(endpoint(s))}</code></td><td><code>${esc(s.operacao)}</code></td>
+      <td>${link(s.contrato)}</td><td>${esc(s.consumidor)}</td><td><span class="sit">${esc(s.situacao)}</span></td>
+    </tr>`).join('') : '<tr><td colspan="8" class="vazio">Nenhum serviço com esses filtros.</td></tr>';
+}
+fetch('servicos.json').then(r => r.json()).then(c => {
+  catalogo = c;
+  document.getElementById('base-rest').textContent = BASE;
+  document.getElementById('base-sock').textContent = c.socket;
+  document.getElementById('ex-curl').textContent = document.getElementById('ex-curl').textContent.replace('BASE', BASE + '');
+  document.getElementById('tb-consome').innerHTML = c.consome.map(s => `<tr>
+      <td>${esc(s.nome)}</td><td>${esc(s.setor)}</td><td>${esc(s.versao)}</td><td>${esc(s.protocolo)}</td>
+      <td><code>${esc(s.endpoint)}</code></td><td><code>${esc(s.operacao)}</code></td><td>${link(s.contrato)}</td></tr>`).join('');
+  render();
+}).catch(() => { document.getElementById('tb').innerHTML = '<tr><td colspan="8" class="vazio">Não consegui carregar servicos.json.</td></tr>'; });
+document.getElementById('busca').onsubmit = () => { if (catalogo) render(); return false; };
+document.getElementById('b-limpar').onclick = () => { document.getElementById('busca').reset(); if (catalogo) render(); };
+</script>
+</body>
+</html>

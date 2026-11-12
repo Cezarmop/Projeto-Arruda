@@ -701,6 +701,7 @@
       <p><strong>Entrada:</strong> o Estoque manda a confirmação de recebimento, a resposta de disponibilidade e o saldo com <code>POST /v1/mensagens</code> (ou a rota do tipo). O Financeiro não chama o Compras: o servidor busca os avisos de pagamento no Finanweb sozinho. Tudo cai na caixa de entrada, que esta tela lê e aplica.</p>
       <p><strong>Saída:</strong> contas a pagar e consulta de pendências vão direto para a API do Finanweb; entradas no saldo, para a API do Estoque. Recebimento-v1, previsões de entrega e consultas de disponibilidade ficam publicados para o Estoque buscar em <code>GET /v1/recebimentos</code>, <code>/v1/previsoes-entrega</code> e <code>/v1/consultas-disponibilidade</code>.</p>
       <p>A chave do painel é a de setor <code>painel</code> no <code>api/config.php</code>. Ela fica salva só neste navegador. O socket continua disponível como alternativa.</p>
+      <p>Documentação para os outros setores: <a href="contratos/" target="_blank" rel="noopener">Contratos de integração</a> e <a href="registro/" target="_blank" rel="noopener">Registry de serviços</a>.</p>
     </div></details>
     <div class="panel">
       <div class="toolbar">
