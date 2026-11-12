@@ -66,6 +66,36 @@ curl -X POST -H "Authorization: Bearer CHAVE_DO_ESTOQUE" -H "Content-Type: appli
      --data-binary @confirmacao-recebimento-v1.xml "https://SEU-DOMINIO/compras/api/v1/mensagens"
 ```
 
+## API keys dos sistemas
+
+Cada sistema que se conecta ao Compras tem a sua chave, enviada em `Authorization: Bearer <chave>`.
+A chave identifica o setor e limita as rotas que ele pode usar.
+
+| Setor | Quem usa | Pode |
+|---|---|---|
+| `painel` | a tela do próprio Compras (aba **API REST**) | todas as rotas |
+| `estoque` | equipe do Estoque | buscar `GET /v1/recebimentos`, `/v1/previsoes-entrega`, `/v1/consultas-disponibilidade`; enviar `POST /v1/mensagens` (confirmação, resposta de disponibilidade, saldo) |
+| `financeiro` | equipe do Financeiro | enviar `POST /v1/mensagens` ou `/v1/avisos-pagamento` e `/v1/respostas-pendencias` |
+
+Respostas: sem chave ou chave errada `401`; chave de outro setor `403`.
+
+**Gerar as chaves** (na raiz do repositório, com PHP 8):
+
+```bash
+php ferramentas/gerar-chaves.php           # cria public_html/compras/api/config.php com 3 chaves novas
+php ferramentas/gerar-chaves.php --forcar  # troca todas as chaves (as antigas param de funcionar)
+```
+
+O script imprime cada chave e para quem entregar. Depois:
+
+1. Envie o `config.php` para `public_html/compras/api/` no servidor.
+2. Cole a chave `painel` na aba **API REST** da tela do Compras.
+3. Entregue a chave `estoque` e a `financeiro` por canal privado, nunca no grupo da turma.
+4. Preencha à mão `financeiro.chave`: essa é a chave que o **Finanweb** emite para o Compras chamar a API dele.
+
+**Segurança:** as chaves reais nunca vão para o Git (o `config.php` está no `.gitignore`). Se uma chave vazar,
+rode o script com `--forcar`, suba o `config.php` novo e reenvie as chaves aos setores.
+
 ## Publicar na Hostinger
 
 1. Envie `public_html/` como já é feito hoje (inclui `compras/api/`).
