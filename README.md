@@ -1,42 +1,69 @@
-# Compras (versão enxuta)
+# Projeto-Arruda · Controle de Compras
 
-Versão com visual mais limpo do Controle de Compras, com as mesmas integrações do original.
+Sistema do setor de **Compras**, integrado ao **Estoque** e ao **Financeiro (Finanweb)** por API REST, XML e socket.
+
+**No ar:** https://compras.cezbyte.com.br · **API:** https://compras.cezbyte.com.br/api/v1 · **Contratos:** https://compras.cezbyte.com.br/contratos/
 
 ## Telas
-- **Pedidos**: criar, editar, filtrar; importar CSV do Estoque e exportar CSV.
-- **Recebimentos**: baixa item a item (parcial permitido), com entrada automática no saldo do Estoque.
-- **Estoque**: saldo, entregas previstas, entradas enviadas e consulta de disponibilidade.
-- **Financeiro**: contas a pagar, consulta de pendências e avisos de pagamento, pela API REST do Finanweb (ou socket/arquivo XML).
-- **Fornecedores**: viram cadastro com 2 usos.
-- **Integrações**: dados da empresa, endereço da API do Estoque e ponte do socket.
-- **Atividade**: histórico de XML (com XSD de cada mensagem) e logs.
 
-## Integrações (iguais às do original)
-- API do Estoque: `GET /api/xml`, `POST /api/xml/validar`, `POST /api/xml` (padrão `https://sistema-de-estoque-cyan.vercel.app`).
-- Ponte `ponte-socket.js` (padrão `http://localhost:8787`): `/eventos`, `/status`, `/enviar`, `/arquivo`, `/lista`, `/proxy`.
-- Contratos: estoque v2, recebimento-v1, previsao-entrega-v1, confirmacao-recebimento-v1, disponibilidade (via `estoque-xml.js`) e Finanweb saida-v2, pendencias-fornecedor-v1, aviso-pagamento-v1.
+| Tela | O que faz |
+|---|---|
+| Pedidos | Criar, editar e filtrar pedidos de compra; importar o CSV do Estoque e exportar CSV |
+| Recebimentos | Baixa item a item (parcial permitido); cada baixa vira uma entrada para o Estoque |
+| Estoque | Saldo buscado sozinho na API do Estoque, valor total em estoque, entregas previstas, entradas e consulta de disponibilidade |
+| Financeiro | Contas a pagar (POST /compras), pendências e avisos de pagamento buscados sozinhos no Finanweb |
+| Fornecedores | Cadastro com CPF/CNPJ; um nome usado em 2 pedidos vira cadastro automaticamente |
+| Integrações | Dados da empresa, API do Estoque, API do Financeiro e ponte do socket |
+| API e contratos | Chaves de API por setor, registro de serviços, contratos XSD e log de acessos |
+| Atividade | Histórico de todo XML/JSON trocado (com o XSD de cada um) e logs |
 
-Usa o mesmo `localStorage` (`controle_compras_v2`) da versão original: no mesmo domínio, os dados são compartilhados.
-Removido em relação ao original: importador de CSV avulso e tela de Movimentações (as entradas ficam em Estoque > Entradas).
+## Estrutura
 
-## API do Financeiro (Finanweb)
-`https://finanwebsistema.vercel.app/api/v1`, com `Authorization: Bearer <chave do setor compras>`:
-- `POST /compras`: pedidos viram contas a pagar (saida-v2 em JSON).
-- `GET /pendencias?origem=compras`: pendências com fornecedores.
-- `GET /avisos-pagamento?origem=compras&desde=<geradoEm>`: avisos de pagamento.
+```
+index.html        app (HTML, CSS e JS num arquivo só)
+estoque-xml.js    gera e lê os XMLs dos contratos (estoque v2, recebimento-v1, previsao-entrega-v1,
+                  confirmacao-recebimento-v1, consulta/resposta de disponibilidade)
+api/v1.js         API REST do Compras (Vercel Function, Node, sem dependências)
+contratos/        XSD e exemplo de cada mensagem + página de documentação
+vercel.json       rotas /api/v1/* e cabeçalhos dos XSD
+```
 
-Pendências e avisos são buscados automaticamente: ao abrir o site, ao entrar na tela Financeiro e a cada 5 min.
+## Integrações
 
-As chaves (Estoque e Financeiro) são informadas em Integrações e ficam só no navegador; nunca vão para o repositório.
-Referências que já existem no Financeiro vindas de outro sistema Compras não são reusadas: pedidos locais ainda não enviados são renumerados.
+**O Compras chama**
+- **Estoque:** `GET /api/xml` (saldo, a cada 2 min) e `POST /api/xml/validar` + `POST /api/xml` (entrada no saldo) em `https://sistema-de-estoque-cyan.vercel.app`, com `X-API-Key` opcional.
+- **Financeiro:** `POST /api/v1/compras`, `GET /api/v1/pendencias` e `GET /api/v1/avisos-pagamento` em `https://finanwebsistema.vercel.app`, com `Authorization: Bearer <chave do setor compras>`. Pendências e avisos a cada 5 min.
+- **Socket da turma** (alternativa), pela ponte `ponte-socket.js` em `http://localhost:8787`.
 
-## API do Compras (para os outros sistemas)
-Base: `https://compras.cezbyte.com.br/api/v1` · `Authorization: Bearer <chave do setor>` · `GET /api/v1` lista as rotas.
-Mesmas rotas da API PHP (`public_html/compras/api`): o Estoque busca `recebimentos`, `previsoes-entrega` e
-`consultas-disponibilidade` (`?desde=<seq>`) e responde em `POST /mensagens`; o Financeiro pode enviar avisos e pendências.
+**Os outros setores chamam o Compras** em `https://compras.cezbyte.com.br/api/v1`, com `Authorization: Bearer <chave do setor>` (`GET /api/v1` lista as rotas):
 
-- Função da Vercel em `api/v1.js` (Node, sem dependências) e banco Redis (Upstash) conectado ao projeto
-  (`KV_REST_API_URL`/`KV_REST_API_TOKEN`).
-- Tela **API e contratos**: ativação (chave de administrador, criada uma vez), chaves por setor (geradas na tela,
-  mostradas uma única vez e guardadas só como hash), registro de serviços, contratos XSD e log de acessos.
-- O app publica automaticamente recebimentos, previsões e consultas, e lê a caixa de entrada a cada minuto.
+| Rota | Quem | Para quê |
+|---|---|---|
+| `GET /recebimentos?desde=<seq>` | estoque | recebimento-v1 publicados |
+| `GET /previsoes-entrega?desde=<seq>` | estoque | previsao-entrega-v1 publicadas |
+| `GET /consultas-disponibilidade?desde=<seq>` | estoque | consultas de saldo |
+| `POST /confirmacoes-recebimento` | estoque | confirmacao-recebimento-v1 |
+| `POST /respostas-disponibilidade` | estoque | respostaDisponibilidade |
+| `POST /saldos-estoque` | estoque | saldo no XML v2 (opcional) |
+| `POST /avisos-pagamento` | financeiro | aviso de pagamento, JSON do Finanweb ou XML |
+| `POST /respostas-pendencias` | financeiro | respostaPendencias (opcional) |
+| `POST /mensagens` | estoque, financeiro | qualquer um dos XMLs acima |
+
+Respostas: `202` recebida, `200` duplicada, `401` chave inválida, `403` rota de outro setor, `422` fora do contrato.
+Os serviços estão publicados no [registro do Finanweb](https://finanwebsistema.vercel.app/registro) como versão 2.0.
+
+## Chaves e segredos
+
+- As chaves dos setores são geradas na tela **API e contratos** (protegida pela chave de administrador, criada uma única vez) e ficam no banco só como hash SHA-256.
+- As chaves que o Compras usa (Finanweb e Estoque) e os dados da empresa ficam no navegador e numa cópia no servidor, lida só com a chave de administrador.
+- **Nenhuma chave vai para o repositório.**
+
+## Publicação (Vercel)
+
+- Projeto `compras` ligado a este repositório (branch `main`, raiz do repositório); cada push publica.
+- Banco: Redis da Upstash (`compras-db`, plano grátis) conectado ao projeto. A API acha as variáveis sozinha (`KV_REST_API_URL`/`KV_REST_API_TOKEN` ou com outro prefixo).
+- Domínio `compras.cezbyte.com.br` com CNAME na Hostinger.
+
+## Rodar localmente
+
+Abra o `index.html` no navegador (a API do Estoque e a do Finanweb liberam CORS). Para a API própria use `vercel dev` com as variáveis do Redis.

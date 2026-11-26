@@ -1,7 +1,6 @@
 /*
  * API REST do Compras (Vercel Function, Node, sem dependências).
- * Mesmas rotas e respostas da API PHP do Projeto-Arruda (public_html/compras/api), para o Estoque e o
- * Financeiro integrarem do mesmo jeito.
+ * Rotas que o Estoque e o Financeiro usam para integrar com o Compras (lista em GET /api/v1).
  *
  * Banco: Redis da Upstash pela API REST. Variáveis de ambiente (criadas pela integração da Vercel):
  *   KV_REST_API_URL + KV_REST_API_TOKEN   ou   UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
