@@ -113,14 +113,21 @@ const PUBLICACAO = {
 const ROTA_PUB = Object.fromEntries(Object.entries(PUBLICACAO).map(([t, c]) => [c.rota, t]));
 
 // --------------------------------------------------------------------------- autenticação
+// Cache curto da autenticação (por instância): o plano grátis do Redis tem 500 mil comandos/mês.
+// Revogar uma chave vale na hora nesta instância e em até 60 s nas outras.
+const CACHE_AUTH_MS = 60000, cacheAuth = new Map(), ultimoUsoGravado = new Map();
 async function setorDaChave(req){
   const m = String(req.headers.authorization || '').match(/^Bearer\s+(\S+)$/i);
   if (!m) return null;
-  const h = sha(m[1]);
+  const h = sha(m[1]), c0 = cacheAuth.get(h);
+  if (c0 && c0.exp > Date.now()) return c0.quem;
   const [admin, reg] = await pipeline([['GET', 'admin'], ['HGET', 'chaves', h]]);
-  if (admin && admin === h) return { setor: 'painel', id: 'painel' };
-  if (reg) { const c = JSON.parse(reg); return { setor: c.setor, id: c.id, nome: c.nome }; }
-  return null;
+  let quem = null;
+  if (admin && admin === h) quem = { setor: 'painel', id: 'painel' };
+  else if (reg) { const c = JSON.parse(reg); quem = { setor: c.setor, id: c.id, nome: c.nome }; }
+  cacheAuth.set(h, { quem, exp: Date.now() + (quem ? CACHE_AUTH_MS : 5000) });
+  if (cacheAuth.size > 500) cacheAuth.clear();
+  return quem;
 }
 async function autenticar(req, permitidos){
   const quem = await setorDaChave(req);
@@ -177,9 +184,10 @@ async function rSetup(req, res){
 }
 async function rListarChaves(req, res){
   await autenticar(req, []);
-  const todas = await redis('HVALS', 'chaves') || [];
-  const lista = todas.map(v => JSON.parse(v)).sort((a, b) => a.criadaEm.localeCompare(b.criadaEm))
-    .map(c => ({ id: c.id, setor: c.setor, nome: c.nome, prefixo: c.prefixo, criadaEm: c.criadaEm, ultimoUso: c.ultimoUso || null }));
+  const [todas, usosL] = await pipeline([['HVALS', 'chaves'], ['HGETALL', 'usos']]);
+  const usos = {}; for (let i = 0; i < (usosL || []).length; i += 2) usos[usosL[i]] = usosL[i + 1];
+  const lista = (todas || []).map(v => JSON.parse(v)).sort((a, b) => a.criadaEm.localeCompare(b.criadaEm))
+    .map(c => ({ id: c.id, setor: c.setor, nome: c.nome, prefixo: c.prefixo, criadaEm: c.criadaEm, ultimoUso: usos[c.id] || c.ultimoUso || null }));
   json(res, 200, { chaves: lista });
 }
 async function rCriarChave(req, res){
@@ -198,7 +206,7 @@ async function rRevogarChave(req, res, p){
   const todas = await redis('HGETALL', 'chaves') || [];
   for (let i = 0; i < todas.length; i += 2) {
     const c = JSON.parse(todas[i + 1]);
-    if (c.id === p.id) { await redis('HDEL', 'chaves', todas[i]); return json(res, 200, { ok: true, revogada: c.id, setor: c.setor }); }
+    if (c.id === p.id) { await redis('HDEL', 'chaves', todas[i]); cacheAuth.clear(); return json(res, 200, { ok: true, revogada: c.id, setor: c.setor }); }
   }
   throw new ErroApi(404, 'Chave não encontrada.');
 }
@@ -252,6 +260,7 @@ async function rListarPub(req, res, p){
   const limite = Math.min(200, Math.max(1, parseInt(req.query.limite, 10) || 50));
   const todos = (await redis('LRANGE', 'pub:' + tipo, 0, -1) || []).map(v => JSON.parse(v));
   const itens = todos.filter(i => i.seq > desde).slice(0, limite);
+  if (itens.length) req._comItens = true;
   json(res, 200, { tipo, desde, ultimo: itens.length ? itens[itens.length - 1].seq : desde, itens });
 }
 async function rLerPub(req, res, p){
@@ -316,12 +325,13 @@ function casar(metodo, caminho){
 async function registrarAcesso(req, status, caminho){
   const q = req._quem; if (!q) return;
   try {
-    const cmds = [['LPUSH', 'acessos', JSON.stringify({ em: agora(), setor: q.setor, chave: q.id, metodo: req.method, rota: '/api/' + caminho, status })], ['LTRIM', 'acessos', 0, 499]];
-    if (q.setor !== 'painel') {
-      const todas = await redis('HGETALL', 'chaves') || [];
-      for (let i = 0; i < todas.length; i += 2) { const c = JSON.parse(todas[i + 1]); if (c.id === q.id) { c.ultimoUso = agora(); cmds.push(['HSET', 'chaves', todas[i], JSON.stringify(c)]); } }
+    const cmds = [];
+    if (req.method !== 'GET' || status >= 400 || req._comItens)
+      cmds.push(['LPUSH', 'acessos', JSON.stringify({ em: agora(), setor: q.setor, chave: q.id, metodo: req.method, rota: '/api/' + caminho, status })], ['LTRIM', 'acessos', 0, 499]);
+    if (q.setor !== 'painel' && (Date.now() - (ultimoUsoGravado.get(q.id) || 0)) > 300000) {
+      ultimoUsoGravado.set(q.id, Date.now()); cmds.push(['HSET', 'usos', q.id, agora()]);
     }
-    await pipeline(cmds);
+    if (cmds.length) await pipeline(cmds);
   } catch (e) {}
 }
 

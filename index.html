@@ -2146,7 +2146,13 @@ async function lerCaixa(manual){
       for (const m of j.itens || []) {
         try {
           if (m.formato === 'json' && m.tipo === 'aviso-pagamento') {
-            const av = JSON.parse(m.conteudo);
+            const av = JSON.parse(m.conteudo), ped = S.pedidos.find(x => x.num === av.referencia);
+            if (!ped || !ped.enviadoFin) {
+              const f = fin(); if (av.referencia && !f.externas.includes(av.referencia)) f.externas.push(av.referencia);
+              if (ped) { const novo = proxNum(); log('Pedido ' + ped.num + ' renumerado para ' + novo + ': o número já existe no Financeiro vindo de outro sistema Compras.'); ped.num = novo; }
+              log('Aviso de pagamento (API do Compras) de ' + av.referencia + ' ignorado: compra não enviada por este sistema.');
+              a.cursor = Math.max(a.cursor, m.seq); n++; continue;
+            }
             if (aplicarAviso(av, 'api', x => { log('Aviso de pagamento (API do Compras) ignorado: ' + x); return false; })) regXml({ direcao: 'recebido', via: 'api', xml: m.conteudo, contratoId: 'aviso-pagamento' });
           } else rotearXml(m.conteudo, 'api');
         } catch (e) { log('API do Compras: mensagem ' + m.seq + ' (' + m.tipo + ', de ' + m.de + ') não aplicada: ' + e.message); }
@@ -2192,7 +2198,7 @@ async function carregarConfigServidor(avisar){
 function agendarCaixa(){
   clearInterval(timerCaixa); timerCaixa = null;
   if (!apiC().admin) return;
-  timerCaixa = setInterval(() => { if (!document.hidden) lerCaixa(false); }, 60000);
+  timerCaixa = setInterval(() => { if (!document.hidden) lerCaixa(false); }, 120000);
 }
 
 // --- tela ---
