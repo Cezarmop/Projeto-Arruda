@@ -23,7 +23,9 @@ Removido em relação ao original: importador de CSV avulso e tela de Movimenta�
 `https://finanwebsistema.vercel.app/api/v1`, com `Authorization: Bearer <chave do setor compras>`:
 - `POST /compras`: pedidos viram contas a pagar (saida-v2 em JSON).
 - `GET /pendencias?origem=compras`: pendências com fornecedores.
-- `GET /avisos-pagamento?origem=compras&desde=<geradoEm>`: avisos de pagamento, buscados a cada 5 min.
+- `GET /avisos-pagamento?origem=compras&desde=<geradoEm>`: avisos de pagamento.
+
+Pendências e avisos são buscados automaticamente: ao abrir o site, ao entrar na tela Financeiro e a cada 5 min.
 
 As chaves (Estoque e Financeiro) são informadas em Integrações e ficam só no navegador; nunca vão para o repositório.
 Referências que já existem no Financeiro vindas de outro sistema Compras não são reusadas: pedidos locais ainda não enviados são renumerados.

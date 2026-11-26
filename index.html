@@ -326,7 +326,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
         </div>
       </div>
       <button class="btn" id="fin-consulta">Consultar pendências</button>
-      <button class="btn" id="fin-avisos">Buscar avisos de pagamento</button>
+      <button class="btn" id="fin-avisos">Atualizar agora</button>
       <button class="btn" id="fin-resposta">Importar XML</button>
     </div>
   </div>
@@ -387,7 +387,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
       <label class="f">Chave do setor compras (Bearer)<input id="fin-chave" type="password" autocomplete="off" placeholder="Cole a chave fornecida pelo Financeiro"></label>
     </div>
     <div class="row">
-      <label class="row sm" style="gap:6px"><input type="checkbox" id="fin-auto"> Buscar avisos de pagamento automaticamente (a cada 5 min)</label>
+      <label class="row sm" style="gap:6px"><input type="checkbox" id="fin-auto"> Buscar pendências e avisos de pagamento automaticamente (a cada 5 min)</label>
       <span class="grow"></span><span class="hint" id="fin-status"></span>
       <button class="btn sm" id="fin-testar">Testar</button><button class="btn sm pri" id="fin-salvar">Salvar</button>
     </div>
@@ -694,6 +694,7 @@ function ir(v){
   $$('.nav').forEach(b => b.classList.toggle('on', b.dataset.view === v));
   VIEWS.forEach(k => $('#v-' + k).hidden = k !== v);
   RENDER[v]();
+  if (v === 'financeiro') finSeVelho(60000);
   document.body.classList.remove('nav-open');
   if (location.hash.slice(1) !== v) history.replaceState(null, '', '#' + v);
   scrollTo(0, 0);
@@ -1626,12 +1627,51 @@ async function buscarAvisosFin(manual){
     f.erro = e.message; salvar(); if (manual) toast(e.message, 'erro');
   } finally { buscandoAvisos = false; }
 }
+/* --- pendências automáticas: todos os fornecedores; só loga e grava histórico quando a lista muda --- */
+let buscandoPend = false;
+const assinaturaPend = itens => JSON.stringify((itens || []).map(i => [i.referencia, i.fornecedor, i.documento, i.valor, i.vencimento]).sort());
+async function buscarPendenciasFin(manual){
+  const f = fin(); if (!f.chave || buscandoPend) return;
+  buscandoPend = true;
+  const id = 'compras-auto-' + Date.now().toString(36);
+  try {
+    const { status, j } = await apiFin('/pendencias?origem=' + ORIGEM + '&id=' + id);
+    if (status >= 400 && !j.erro) throw new Error('HTTP ' + status);
+    const itens = (j.pendencias || []).map(x => ({ referencia: x.referencia || '', fornecedor: (x.fornecedor && x.fornecedor.nome) || '',
+      documento: (x.fornecedor && x.fornecedor.documento) || '', categoria: x.categoria || '', valor: Number(x.valor) || 0, vencimento: x.vencimento || '' }));
+    const soma = itens.reduce((s, i) => s + centavos(i.valor), 0), avisos = [];
+    if (j.totalizador && j.totalizador.qtdPendencias !== itens.length) avisos.push('totalizador diz ' + j.totalizador.qtdPendencias + ', vieram ' + itens.length);
+    if (j.totalizador && centavos(j.totalizador.valorTotal) !== soma) avisos.push('valorTotal difere da soma');
+    const mudou = !S.pendencias || !!S.pendencias.erro !== !!j.erro || assinaturaPend(S.pendencias.itens) !== assinaturaPend(itens);
+    S.pendencias = { id: j.id || id, dataConsulta: j.dataConsulta || hoje(), erro: j.erro, itens, valorTotal: soma / 100, avisos, auto: true, buscadoEm: new Date().toISOString() };
+    let comp = 0;
+    itens.forEach(it => { if (!docValido(it.documento)) return; const fo = acharForn(it.fornecedor); if (fo && !docValido(soDigitos(fo.cnpj))) { fo.cnpj = it.documento; comp++; } });
+    if (mudou || comp) {
+      regXml({ direcao: 'recebido', via: 'api', xml: JSON.stringify(j, null, 2), contratoId: 'pendencias-resposta', ok: !j.erro });
+      log('Financeiro: pendências atualizadas pela API: ' + (j.erro ? 'erro ' + j.erro : itens.length + ' pendência(s), ' + money(soma / 100)) + '.' + (comp ? ' CPF/CNPJ completado em ' + comp + ' fornecedor(es).' : ''));
+    }
+    f.erroPend = ''; salvar();
+    if (!$('#v-financeiro').hidden) renderFin();
+    if (manual) toast(j.erro ? 'Financeiro: ' + j.erro : itens.length + ' pendência(s) carregada(s).', j.erro ? 'erro' : 'ok');
+  } catch (e) {
+    if (manual || !f.erroPend) log('Financeiro: busca de pendências falhou: ' + e.message);
+    f.erroPend = e.message; salvar(); if (manual) toast(e.message, 'erro');
+  } finally { buscandoPend = false; }
+}
+function sincronizarFin(manual){ buscarPendenciasFin(manual); buscarAvisosFin(manual); }
+// sincroniza se a última busca for mais antiga que "ms" (ao entrar na tela Financeiro ou voltar para a aba)
+function finSeVelho(ms){
+  const f = S.fin; if (!f || !f.chave || f.auto === false) return;
+  const ult = Math.min(new Date(f.ultimaBusca || 0).getTime(), new Date((S.pendencias && S.pendencias.buscadoEm) || 0).getTime());
+  if (Date.now() - ult > ms) sincronizarFin(false);
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) finSeVelho(5 * 60000); });
 function agendarAvisos(){
   clearInterval(timerAvisos); timerAvisos = null;
   const f = fin(); if (!f.chave || f.auto === false) return;
-  timerAvisos = setInterval(() => { if (!document.hidden) buscarAvisosFin(false); }, 5 * 60000);
+  timerAvisos = setInterval(() => { if (!document.hidden) sincronizarFin(false); }, 5 * 60000);
 }
-$('#fin-avisos').onclick = () => buscarAvisosFin(true);
+$('#fin-avisos').onclick = () => sincronizarFin(true);
 $('#fin-resposta').onclick = () => $('#f-fin').click();
 lerArquivo($('#f-fin'), t => (/avisoPagamento/.test(t) ? aplicarAvisoPagamento : aplicarRespostaPendencias)(t, 'arquivo'));
 function renderFin(){
@@ -1639,10 +1679,11 @@ function renderFin(){
   partes.push(c.empresa ? 'Empresa <b>' + esc(c.empresa) + '</b> (' + esc(fmtDoc(c.cnpj)) + '), usuário ' + esc(c.usuario) + '.'
     : '<b style="color:var(--warn)">Dados da empresa não preenchidos</b> (Integrações).');
   const f = fin();
-  partes.push(f.chave ? 'API do Financeiro configurada' + (f.ultimaBusca ? ', avisos buscados em ' + fmtDataHora(f.ultimaBusca) : '') + (f.erro ? ' <span style="color:var(--bad)">(erro: ' + esc(f.erro) + ')</span>' : '') + '.'
+  const erroFin = f.erroPend || f.erro;
+  partes.push(f.chave ? (f.auto !== false ? 'Atualização automática ligada' : 'API do Financeiro configurada') + (f.ultimaBusca ? ', última busca em ' + fmtDataHora(f.ultimaBusca) : '') + (erroFin ? ' <span style="color:var(--bad)">(erro: ' + esc(erroFin) + ')</span>' : '') + '.'
     : '<b style="color:var(--warn)">Chave da API do Financeiro não informada</b> (Integrações).');
   if (S.consultas.length) partes.push('Última consulta: <span class="mono">' + esc(S.consultas[0].id) + '</span>.');
-  if (pr) partes.push('Resposta <span class="mono">' + esc(pr.id) + '</span> de ' + fmtData(pr.dataConsulta) + (pr.erro ? ', erro: ' + esc(pr.erro) : ': ' + pr.itens.length + ' pendência(s), <b>' + money(pr.valorTotal) + '</b>') + '.' + (pr.avisos && pr.avisos.length ? ' Avisos: ' + esc(pr.avisos.join('; ')) + '.' : ''));
+  if (pr) partes.push((pr.auto ? 'Pendências do Financeiro em ' + fmtData(pr.dataConsulta) : 'Resposta <span class="mono">' + esc(pr.id) + '</span> de ' + fmtData(pr.dataConsulta)) + (pr.erro ? ', erro: ' + esc(pr.erro) : ': ' + pr.itens.length + ' pendência(s), <b>' + money(pr.valorTotal) + '</b>') + '.' + (pr.avisos && pr.avisos.length ? ' Avisos: ' + esc(pr.avisos.join('; ')) + '.' : ''));
   $('#fin-resumo').innerHTML = partes.join(' ');
   const itens = pr && !pr.erro ? pr.itens : [];
   $('#em-fin').hidden = itens.length > 0;
@@ -1736,7 +1777,7 @@ $('#fin-salvar').onclick = () => {
   const f = fin(); f.url = v === FIN_PADRAO ? '' : v; f.chave = $('#fin-chave').value.trim(); f.auto = $('#fin-auto').checked; f.erro = '';
   salvar(); agendarAvisos(); log('Financeiro: API configurada' + (f.chave ? ' com chave.' : ' sem chave.'));
   toast('Configuração do Financeiro salva.', 'ok'); renderIntegracoes();
-  if (f.chave && f.auto !== false) buscarAvisosFin(false);
+  if (f.chave && f.auto !== false) sincronizarFin(false);
 };
 $('#fin-testar').onclick = async () => {
   const f = fin(), antes = f.chave; f.chave = $('#fin-chave').value.trim() || antes;
@@ -1981,7 +2022,7 @@ statusSock();
 if (!EX) toast('estoque-xml.js não encontrado: a parte de Estoque precisa dele na mesma pasta.', 'erro');
 sockConectar();
 if (est().autoSaldo !== false) { atualizarSaldoSilencioso(); agendarSaldo(); }
-if (fin().chave && fin().auto !== false) { buscarAvisosFin(false); agendarAvisos(); }
+if (fin().chave && fin().auto !== false) { sincronizarFin(false); agendarAvisos(); }
 </script>
 </body>
 </html>
