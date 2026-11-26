@@ -170,6 +170,7 @@
    * Itens do mesmo SKU no mesmo recebimento sao somados (um evento por SKU).
    * opts.incluirProdutos: tambem envia <produto> (quantidade 0) para o Estoque cadastrar SKUs novos,
    *   sem duplicar o saldo - quem soma e a <compra>. Use se o Estoque rejeitar compra de SKU inexistente.
+   * opts.skusExistentes (Set): SKUs que o Estoque ja tem; esses vao so como <compra>, sem <produto>.
    */
   function loteDeRecebimentos(recebimentos, opts = {}) {
     const movs = [];
@@ -181,7 +182,7 @@
         const q = Math.trunc(Number(it.quantidade));
         if (!sku || !(q > 0)) continue;
         porSku.set(sku, (porSku.get(sku) || 0) + q);
-        if (opts.incluirProdutos && !produtos.has(sku)) {
+        if (opts.incluirProdutos && !produtos.has(sku) && !(opts.skusExistentes && opts.skusExistentes.has(sku))) {
           produtos.set(sku, { sku, nome: it.nome || sku, quantidade: 0, preco: it.preco ?? 0,
             estoqueMinimo: 0, finalidade: it.finalidade || undefined });
         }

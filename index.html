@@ -1343,7 +1343,13 @@ function empresaOk(){
   return false;
 }
 function xmlEntradas(lista, formato){
-  if (formato === 'v2') return EX.gerarXml(EX.loteDeRecebimentos(lista.map(x => ({ id: x.id, recebidoEm: x.recebidoEm, itens: [{ sku: x.sku, nome: x.nome, quantidade: x.quantidade }] }))));
+  // produto que o Estoque ainda não tem vai com o cadastro (<produto>, quantidade 0) para a <compra> poder somar;
+  // os que ele já tem vão só como <compra>, sem mexer no cadastro deles
+  if (formato === 'v2') {
+    const existentes = new Set(((est().saldo && est().saldo.produtos) || []).map(p => EX.normalizarSku ? EX.normalizarSku(p.sku) : p.sku));
+    return EX.gerarXml(EX.loteDeRecebimentos(lista.map(x => ({ id: x.id, recebidoEm: x.recebidoEm, itens: [{ sku: x.sku, nome: x.nome, quantidade: x.quantidade, preco: Number(x.preco) || 0 }] })),
+      { incluirProdutos: true, skusExistentes: existentes }));
+  }
   return EX.gerarRecebimentos({ ...cabEmpresa(), recebimentos: lista.map(x => ({
     referencia: x.externalId, pedido: x.pedido, status: x.tipo, dataRecebimento: x.recebidoEm,
     fornecedor: { nome: x.fornecedor || 'Sem fornecedor', documento: docForn(x.fornecedor) },
@@ -1536,6 +1542,14 @@ async function enviarApiEstoque(xml){
   if (v.status >= 400) throw new Error('o Estoque recusou na validação (' + v.status + '): ' + resumoApi(v.corpo));
   const i = await apiEstoque('/api/xml', 'POST', xml);
   if (i.status >= 400) throw new Error('o Estoque recusou a importação (' + i.status + '): ' + resumoApi(i.corpo));
+  // o Estoque responde 200 mesmo quando recusa itens: os erros vêm em produtos.erros e movimentacoes.erros
+  let j = null; try { j = JSON.parse(i.corpo); } catch (e) {}
+  if (j && (j.produtos || j.movimentacoes)) {
+    const erros = [...((j.produtos && j.produtos.erros) || []), ...((j.movimentacoes && j.movimentacoes.erros) || [])];
+    if (erros.length) throw new Error('o Estoque recusou ' + erros.length + ' item(ns): ' + erros.map(x => x.erro || x.mensagem || JSON.stringify(x)).slice(0, 3).join('; '));
+    const m = j.movimentacoes || {}, pr = j.produtos || {};
+    return (pr.importados ? pr.importados + ' produto(s) novo(s) cadastrado(s), ' : '') + (m.importados || 0) + ' entrada(s) registrada(s)' + (m.ignorados ? ', ' + m.ignorados + ' já registrada(s) antes' : '');
+  }
   return resumoApi(i.corpo);
 }
 async function enviarEntradasApi(lista, origem){
