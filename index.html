@@ -131,6 +131,19 @@ dialog::backdrop{background:rgba(10,10,12,.45)}
 .item button:hover{color:var(--bad)}
 .secreto{-webkit-text-security:disc;font-family:ui-monospace,Menlo,Consolas,monospace}
 .secreto:focus{-webkit-text-security:none}
+.valor{display:grid;grid-template-columns:minmax(200px,260px) 1fr;gap:20px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.valor-total b{display:block;font-size:26px;font-weight:650;letter-spacing:-.02em}
+.valor-total span{color:var(--muted);font-size:12px}
+.valor-total .split{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.valor-total .split div{display:flex;justify-content:space-between;gap:10px;font-size:12px}
+.barras{display:flex;flex-direction:column;gap:7px;min-width:0}
+.barras h4{margin:0 0 2px;font-size:12px;font-weight:500;color:var(--muted)}
+.barra{display:grid;grid-template-columns:minmax(120px,220px) 1fr 140px;gap:10px;align-items:center;font-size:12.5px}
+.barra .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.barra i{display:block;height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.barra i::after{content:"";display:block;height:100%;width:var(--p);background:var(--accent);border-radius:4px}
+.barra .vl{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (max-width:860px){.valor{grid-template-columns:1fr}.barra{grid-template-columns:110px 1fr 84px}}
 pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow:auto;max-height:60vh}
 
 /* settings */
@@ -271,8 +284,9 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
       <button class="btn sm pri" id="es-pedir" disabled>Criar pedido</button>
     </div>
     <div class="note" id="es-meta" hidden></div>
+    <div class="valor" id="es-valor" hidden></div>
     <div class="scroll"><table>
-      <thead><tr><th style="width:32px"><input type="checkbox" id="es-all" aria-label="Selecionar todos"></th><th>SKU</th><th>Produto</th><th class="r">Saldo</th><th class="r">Mínimo</th><th class="r">Preço</th><th>Situação</th></tr></thead>
+      <thead><tr><th style="width:32px"><input type="checkbox" id="es-all" aria-label="Selecionar todos"></th><th>SKU</th><th>Produto</th><th class="r">Saldo</th><th class="r">Mínimo</th><th class="r">Preço</th><th class="r">Valor</th><th>Situação</th></tr></thead>
       <tbody id="tb-saldo"></tbody>
     </table></div>
     <div class="empty" id="em-saldo" hidden><b id="em-saldo-t">Saldo não carregado</b><span id="em-saldo-p">Busque pela API, importe o XML do Estoque ou aguarde o socket.</span></div>
@@ -1090,6 +1104,7 @@ function renderEstoque(){
   const pend = s.entradas.filter(x => !x.enviado).length;
   const div = s.entradas.filter(x => x.statusEstoque === 'DIVERGENTE' || x.statusEstoque === 'REJEITADO').length;
   stats('#st-estoque', [
+    { v: s.saldo ? money(valorEstoque(prods)) : '—', t: 'valor total em estoque' },
     { v: s.saldo ? prods.length : '—', t: 'produtos no saldo' },
     { v: s.saldo ? baixos : '—', t: 'no mínimo ou abaixo', c: baixos ? 'warn' : '' },
     { v: abertos.length, t: 'entregas previstas' + (atr ? ' (' + atr + ' atrasada' + (atr > 1 ? 's' : '') + ')' : ''), c: atr ? 'bad' : '' },
@@ -1106,16 +1121,38 @@ function renderEstoque(){
 }
 $$('#est-tabs .tab').forEach(b => b.onclick = () => { estAba = b.dataset.aba; renderEstoque(); });
 
+// valor do estoque = saldo × preço de cada produto (preço vindo do próprio Estoque)
+const valorItem = p => Math.max(0, Number(p.quantidade) || 0) * (Number(p.preco) || 0);
+const valorEstoque = prods => prods.reduce((t, p) => t + valorItem(p), 0);
+function renderValorEstoque(prods){
+  const box = $('#es-valor');
+  if (!prods.length) { box.hidden = true; return; }
+  const total = valorEstoque(prods), unidades = prods.reduce((t, p) => t + Math.max(0, Number(p.quantidade) || 0), 0);
+  const venda = valorEstoque(prods.filter(p => p.finalidade !== 'USO_INTERNO')), interno = total - venda;
+  const top = prods.map(p => ({ p, v: valorItem(p) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+  const mostra = top.slice(0, 8), resto = top.slice(8).reduce((t, x) => t + x.v, 0), max = mostra.length ? mostra[0].v : 1;
+  box.hidden = false;
+  box.innerHTML = `<div class="valor-total"><span>Valor total em estoque</span><b>${money(total)}</b>
+      <span>${unidades.toLocaleString('pt-BR')} unidade(s) em ${prods.length} produto(s)</span>
+      <div class="split"><div><span>Para venda</span><span>${money(venda)}</span></div><div><span>Uso interno</span><span>${money(interno)}</span></div>
+      <div><span>Sem saldo</span><span>${prods.filter(p => p.quantidade <= 0).length} produto(s)</span></div></div></div>
+    <div class="barras"><h4>Onde está o valor (saldo × preço)</h4>
+      ${mostra.map(x => `<div class="barra" title="${esc(x.p.sku)}: ${x.p.quantidade} × ${money(x.p.preco)}"><span class="nm">${esc(x.p.nome)} <span class="mut mono">${esc(x.p.sku)}</span></span>
+        <i style="--p:${Math.max(2, Math.round(100 * x.v / max))}%"></i><span class="vl">${money(x.v)} <span class="mut">${total ? Math.round(100 * x.v / total) : 0}%</span></span></div>`).join('')}
+      ${resto > 0 ? `<div class="barra"><span class="nm mut">Outros ${top.length - 8} produto(s)</span><i style="--p:${Math.max(2, Math.round(100 * resto / max))}%"></i><span class="vl">${money(resto)} <span class="mut">${Math.round(100 * resto / total)}%</span></span></div>` : ''}
+    </div>`;
+}
 function renderSaldo(){
   const s = est(), meta = $('#es-meta');
   if (!s.saldo) {
-    meta.hidden = true; $('#tb-saldo').innerHTML = ''; $('#em-saldo').hidden = false;
+    meta.hidden = true; $('#es-valor').hidden = true; $('#tb-saldo').innerHTML = ''; $('#em-saldo').hidden = false;
     $('#em-saldo-t').textContent = 'Saldo não carregado';
     $('#em-saldo-p').textContent = 'Busque pela API, importe o XML do Estoque ou aguarde o socket.';
     return atualizaSel();
   }
   const via = { arquivo: 'arquivo', socket: 'socket', api: 'API' }[s.saldo.via] || s.saldo.via;
   meta.hidden = false;
+  renderValorEstoque(s.saldo.produtos);
   meta.innerHTML = 'Gerado pelo Estoque em <b>' + esc(fmtDataHora(s.saldo.geradoEm)) + '</b>, recebido via ' + esc(via) + ' em ' + esc(fmtDataHora(s.saldo.recebidoEm)) + '.';
   const q = chave(fes.q), ord = { falta: 0, baixo: 1, ok: 2 };
   const lista = s.saldo.produtos.filter(p => (!fes.sit || situacao(p) === fes.sit) && contem(q, p.sku, p.nome))
@@ -1126,7 +1163,7 @@ function renderSaldo(){
     const [t, c] = SIT[situacao(p)];
     return `<tr><td><input type="checkbox" data-sel="${esc(p.sku)}" ${sel.has(p.sku) ? 'checked' : ''} aria-label="Selecionar"></td>
       <td class="mono">${esc(p.sku)}</td><td>${esc(p.nome)}${p.finalidade === 'USO_INTERNO' ? ' <span class="sm mut">· uso interno</span>' : ''}</td>
-      <td class="r"><b>${p.quantidade}</b></td><td class="r mut">${p.estoqueMinimo}</td><td class="r">${money(p.preco)}</td><td>${st(t, c)}</td></tr>`;
+      <td class="r"><b>${p.quantidade}</b></td><td class="r mut">${p.estoqueMinimo}</td><td class="r">${money(p.preco)}</td><td class="r"><b style="font-weight:550">${money(valorItem(p))}</b></td><td>${st(t, c)}</td></tr>`;
   }).join('');
   atualizaSel();
 }
