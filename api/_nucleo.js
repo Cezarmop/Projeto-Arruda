@@ -95,14 +95,17 @@ const ENTRADA = {
   'saldo-estoque': { setores: ['estoque'], teste: r => r.nome === 'estoque' },
   'aviso-pagamento': { setores: ['financeiro'], teste: r => r.nome === 'avisoPagamento' && r.ns === 'urn:finanweb:aviso-pagamento:1.0' },
   'resposta-pendencias': { setores: ['financeiro'], teste: r => r.nome === 'respostaPendencias' && r.ns === 'urn:finanweb:pendencias-fornecedor:1.0' },
+  'solicitacao-compra': { setores: ['estoque'], teste: r => r.nome === 'solicitacaoCompra' && r.ns === 'urn:compras:solicitacao-compra:1.0' },
 };
 const ROTA_ENTRADA = { 'confirmacoes-recebimento': 'confirmacao-recebimento', 'respostas-disponibilidade': 'resposta-disponibilidade',
-  'saldos-estoque': 'saldo-estoque', 'avisos-pagamento': 'aviso-pagamento', 'respostas-pendencias': 'resposta-pendencias' };
+  'saldos-estoque': 'saldo-estoque', 'avisos-pagamento': 'aviso-pagamento', 'respostas-pendencias': 'resposta-pendencias',
+  'solicitacoes-compra': 'solicitacao-compra' };
 // publicações que o Compras deixa para o Estoque buscar
 const PUBLICACAO = {
   'recebimento': { rota: 'recebimentos', teste: r => r.nome === 'movimento' && r.ns === 'urn:compras:recebimento:1.0' },
   'previsao-entrega': { rota: 'previsoes-entrega', teste: r => r.nome === 'movimento' && r.ns === 'urn:compras:previsao-entrega:1.0' },
   'consulta-disponibilidade': { rota: 'consultas-disponibilidade', teste: r => r.nome === 'consultaDisponibilidade' },
+  'resposta-solicitacao': { rota: 'respostas-solicitacao', teste: r => r.nome === 'respostaSolicitacao' && r.ns === 'urn:compras:resposta-solicitacao:1.0' },
 };
 const ROTA_PUB = Object.fromEntries(Object.entries(PUBLICACAO).map(([t, c]) => [c.rota, t]));
 

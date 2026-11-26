@@ -182,6 +182,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
 <aside class="side" aria-label="Menu">
   <div class="logo">Compras<small>Controle de compras</small></div>
   <button class="nav on" data-view="pedidos">Pedidos <span class="n" id="n-pedidos" hidden></span></button>
+  <button class="nav" data-view="solicitacoes">Solicitações <span class="n" id="n-sol" hidden></span></button>
   <button class="nav" data-view="recebimentos">Recebimentos <span class="n" id="n-receb" hidden></span></button>
   <button class="nav" data-view="estoque">Estoque <span class="n" id="n-estoque" hidden></span></button>
   <button class="nav" data-view="movimentacoes">Movimentações</button>
@@ -331,6 +332,27 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
       <tbody id="tb-cons"></tbody>
     </table></div>
     <div class="empty" id="em-cons" hidden><b>Nenhuma consulta</b>Consulte a disponibilidade antes de comprar.</div>
+  </div>
+</section>
+
+<!-- ============ SOLICITAÇÕES DO ESTOQUE ============ -->
+<section id="v-solicitacoes" hidden>
+  <div class="head">
+    <div><h1>Solicitações de compra</h1><div class="sub">Pedidos de compra feitos pelo Estoque. Crie o pedido ou recuse; a resposta volta para o Estoque.</div></div>
+    <button class="btn" id="sol-importar">Importar XML</button>
+  </div>
+  <div class="stats" id="st-sol"></div>
+  <div class="card">
+    <div class="bar">
+      <input class="search" id="fsol-q" type="search" placeholder="Buscar referência, SKU ou produto">
+      <select id="fsol-sit" aria-label="Filtrar situação"><option value="PENDENTE">Aguardando</option><option value="ATENDIDA">Atendidas</option><option value="RECUSADA">Recusadas</option><option value="">Todas</option></select>
+      <span class="grow"></span><span class="mut sm" id="fsol-meta"></span>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th>Solicitação</th><th>Motivo</th><th>Itens</th><th>Precisa até</th><th>Situação</th><th></th></tr></thead>
+      <tbody id="tb-sol"></tbody>
+    </table></div>
+    <div class="empty" id="em-sol" hidden><b>Nenhuma solicitação aqui</b>As solicitações do Estoque chegam pela API, pelo SOAP ou pelo socket e aparecem nesta tela.</div>
   </div>
 </section>
 
@@ -719,6 +741,12 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
 
 <input type="file" id="f-csv" accept=".csv,.txt" hidden>
 <input type="file" id="f-mov" accept=".csv,.txt" hidden>
+<input type="file" id="f-sol" accept=".xml" hidden>
+<dialog id="dlg-recusa">
+  <div class="dh"><h2>Recusar solicitação <span id="rs-ref" class="mono"></span></h2><button class="x" data-close aria-label="Fechar">×</button></div>
+  <div class="db"><label class="f">Motivo (vai para o Estoque)<textarea id="rs-motivo" rows="3" maxlength="500" placeholder="Ex.: produto descontinuado pelo fornecedor"></textarea></label></div>
+  <div class="df"><span></span><div class="row"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="rs-confirmar">Recusar</button></div></div>
+</dialog>
 <input type="file" id="f-imp" accept=".csv,.txt" hidden>
 <input type="file" id="f-fin" accept=".xml" hidden>
 <input type="file" id="f-est" accept=".xml" hidden>
@@ -887,8 +915,8 @@ function recalcUsos(){
 function docForn(nome){ const f = acharForn(nome), d = soDigitos(f && f.cnpj); return docValido(d) ? d : undefined; }
 
 /* ---------- navegação ---------- */
-const VIEWS = ['pedidos', 'recebimentos', 'estoque', 'movimentacoes', 'financeiro', 'fornecedores', 'importados', 'integracoes', 'api', 'atividade'];
-const RENDER = { pedidos: renderPedidos, recebimentos: renderReceb, estoque: renderEstoque, movimentacoes: renderMov, financeiro: renderFin,
+const VIEWS = ['pedidos', 'solicitacoes', 'recebimentos', 'estoque', 'movimentacoes', 'financeiro', 'fornecedores', 'importados', 'integracoes', 'api', 'atividade'];
+const RENDER = { pedidos: renderPedidos, solicitacoes: renderSolicitacoes, recebimentos: renderReceb, estoque: renderEstoque, movimentacoes: renderMov, financeiro: renderFin,
   fornecedores: renderForn, importados: renderImportados, integracoes: renderIntegracoes, api: renderApi, atividade: renderAtividade };
 function ir(v){
   if (!VIEWS.includes(v)) v = 'pedidos';
@@ -913,6 +941,7 @@ function contadores(){
   const set = (id, n) => { const b = $(id); if (b) { b.textContent = n; b.hidden = !n; } };
   set('#n-pedidos', S.pedidos.filter(atrasado).length);
   set('#n-receb', itensAReceber().length);
+  set('#n-sol', solPendentes().length);
   set('#n-fin', S.pedidos.filter(p => (p.enviadoFin || p.finPendente) && !p.avisoFin).length);
   set('#n-estoque', S.estoque && S.estoque.entradas ? S.estoque.entradas.filter(x => !x.enviado).length : 0);
 }
@@ -994,6 +1023,7 @@ function datalistForn(){
     .map(f => `<option value="${esc(f.nome)}">`).join('');
 }
 function abrirPedido(p = null, preset = null){
+  pedidoSolicitacao = (preset && preset.solicitacao) || null;   // pedido aberto a partir de uma solicitação do Estoque
   editando = p; datalistForn();
   $('#pd-titulo').textContent = p ? 'Editar ' + p.num : 'Novo pedido';
   $('#pd-forn').value = p ? p.fornecedor : (preset && preset.fornecedor) || '';
@@ -1034,6 +1064,7 @@ $('#pd-salvar').onclick = () => {
   } else {
     const num = proxNum();
     const p = { id: uid(), num, fornecedor: forn, itens: itens.map(i => ({ ...i, receb: 0 })), fin, log: lg, recebido: false, ...extra, emissao: hoje(), ...(fin === 'Pago' ? { pagoEm: hoje() } : {}) };
+    if (pedidoSolicitacao) { const sol = (S.solicitacoes || []).find(x => x.id === pedidoSolicitacao && x.situacao === 'PENDENTE'); if (sol) { p.solicitacao = sol.referencia; atenderSolicitacao(sol, p); } pedidoSolicitacao = null; }
     atualizaLogistica(p); S.pedidos.unshift(p); usaForn(forn); novoPedido = p;
     log('Pedido ' + num + ' criado: ' + money(totalPedido(p)) + ', ' + (forn || 'sem fornecedor') + '.');
     if (!autoEnvioLigado()) toast('Pedido ' + num + ' criado.', 'ok');
@@ -1658,7 +1689,7 @@ function aplicarXmlEstoque(text, via){
   } catch (err) { log('Estoque: XML rejeitado (' + via + '): ' + err.message); if (via !== 'socket') toast(err.message, 'erro'); return false; }
 }
 $('#est-importar').onclick = () => { if (exigeModulo()) $('#f-est').click(); };
-lerArquivo($('#f-est'), t => aplicarXmlEstoque(t, 'arquivo'));
+lerArquivo($('#f-est'), t => /<([\w.-]+:)?solicitacaoCompra[\s>]/.test(t) ? aplicarSolicitacao(t, 'arquivo') : aplicarXmlEstoque(t, 'arquivo'));
 
 /* =============================================================================
    FINANCEIRO (Finanweb)
@@ -2059,6 +2090,114 @@ function renderFin(){
 }
 
 /* =============================================================================
+   SOLICITAÇÕES DE COMPRA DO ESTOQUE
+   O Estoque pede (solicitacao-compra-v1) pela API, SOAP, socket ou arquivo; o Compras cria o pedido
+   ou recusa e devolve a respostaSolicitacao (resposta-solicitacao-v1) para o Estoque buscar.
+   ========================================================================== */
+const MOTIVO_SOL = { ESTOQUE_MINIMO: 'Estoque no mínimo', SEM_SALDO: 'Sem saldo', REPOSICAO: 'Reposição', PRODUTO_NOVO: 'Produto novo', OUTRO: 'Outro' };
+let pedidoSolicitacao = null, solRecusando = null;
+const solPendentes = () => (S.solicitacoes || []).filter(s => s.situacao === 'PENDENTE');
+function aplicarSolicitacao(t, via){
+  if (!EX) { exigeModulo(); return false; }
+  let s;
+  try { s = EX.lerSolicitacaoCompra(t); }
+  catch (err) {
+    log('Estoque: solicitação de compra recusada (' + via + '): ' + err.message);
+    regXml({ direcao: 'recebido', via, xml: t, contratoId: 'solicitacao-compra', ok: false, detalhe: err.message });
+    if (via === 'arquivo') toast(err.message.slice(0, 240), 'erro');
+    return true;
+  }
+  S.solicitacoes = S.solicitacoes || [];
+  const ja = S.solicitacoes.find(x => x.referencia === s.referencia);
+  const conteudo = JSON.stringify({ ...s, origem: undefined });
+  if (ja) {
+    if (JSON.stringify({ ...ja.dados, origem: undefined }) === conteudo) { log('Estoque: solicitação ' + s.referencia + ' recebida de novo (' + via + '), nada mudou.'); return true; }
+    if (ja.situacao !== 'PENDENTE') { log('Estoque: solicitação ' + s.referencia + ' alterada (' + via + ') ignorada: já foi ' + ja.situacao.toLowerCase() + '.'); return true; }
+    Object.assign(ja, { dados: s, atualizadaEm: new Date().toISOString(), via });
+    log('Estoque: solicitação ' + s.referencia + ' atualizada (' + via + ').');
+  } else {
+    S.solicitacoes.unshift({ id: uid(), referencia: s.referencia, dados: s, situacao: 'PENDENTE', recebidaEm: new Date().toISOString(), via });
+    log('Estoque: solicitação de compra ' + s.referencia + ' recebida (' + via + '): ' + s.itens.length + ' item(ns), ' + (MOTIVO_SOL[s.motivo] || s.motivo).toLowerCase() + (s.prioridade === 'URGENTE' ? ', urgente' : '') + '.');
+    toast('Nova solicitação de compra do Estoque: ' + s.referencia + '.', 'ok');
+  }
+  regXml({ direcao: 'recebido', via, xml: t, contratoId: 'solicitacao-compra' });
+  salvar(); renderTudo();
+  return true;
+}
+async function responderSolicitacao(sol, r){
+  let xml;
+  try { xml = EX.gerarRespostaSolicitacao({ referencia: sol.referencia, ...r }); }
+  catch (e) { log('Solicitação ' + sol.referencia + ': resposta não gerada: ' + e.message); return; }
+  sol.resposta = { xml, em: new Date().toISOString(), publicada: false, socket: false };
+  regXml({ direcao: 'enviado', via: apiC().admin ? 'api' : 'arquivo', xml, contratoId: 'resposta-solicitacao' });
+  if (await publicarApi('resposta-solicitacao', xml, sol.referencia)) sol.resposta.publicada = true;
+  if (sockPronto()) sol.resposta.socket = await sockArquivo(xml, 'resposta-solicitacao_' + sol.referencia + '.xml', destEst(), 'resposta da solicitação ' + sol.referencia, true);
+  if (!sol.resposta.publicada && !sol.resposta.socket) log('Solicitação ' + sol.referencia + ': resposta guardada, mas não enviada (sem chave de administrador e sem socket). Baixe o XML na tela Solicitações.');
+  salvar(); renderTudo();
+}
+function atenderSolicitacao(sol, p){
+  sol.situacao = 'ATENDIDA'; sol.pedidos = [...(sol.pedidos || []), p.num]; sol.respondidaEm = new Date().toISOString();
+  log('Solicitação ' + sol.referencia + ' atendida com o pedido ' + p.num + '.');
+  responderSolicitacao(sol, { situacao: 'ATENDIDA', pedido: p.num, fornecedor: p.fornecedor, dataPrevista: p.previsao,
+    itens: p.itens.map(i => ({ sku: skuEst(i.sku, i.nome), quantidade: i.qtd })) });
+}
+const fsol = { q: '', sit: 'PENDENTE' };
+function renderSolicitacoes(){
+  const todas = S.solicitacoes || [], q = chave(fsol.q);
+  const lista = todas.filter(s => (!fsol.sit || s.situacao === fsol.sit) && contem(q, s.referencia, ...s.dados.itens.map(i => i.sku + ' ' + i.produto)))
+    .sort((a, b) => (a.situacao === 'PENDENTE') - (b.situacao === 'PENDENTE') || (b.dados.prioridade === 'URGENTE') - (a.dados.prioridade === 'URGENTE') || String(b.recebidaEm).localeCompare(String(a.recebidaEm)));
+  lista.sort((a, b) => (b.situacao === 'PENDENTE') - (a.situacao === 'PENDENTE'));
+  stats('#st-sol', [{ v: solPendentes().length, t: 'aguardando o Compras', c: solPendentes().length ? 'warn' : '' },
+    { v: solPendentes().filter(s => s.dados.prioridade === 'URGENTE').length, t: 'urgentes' },
+    { v: todas.filter(s => s.situacao === 'ATENDIDA').length, t: 'atendidas', c: 'ok' }, { v: todas.filter(s => s.situacao === 'RECUSADA').length, t: 'recusadas' }]);
+  $('#fsol-meta').textContent = todas.length ? lista.length + ' solicitação(ões)' : '';
+  $('#em-sol').hidden = lista.length > 0;
+  $('#tb-sol').innerHTML = lista.map(s => {
+    const d = s.dados, atrasada = d.dataNecessidade && d.dataNecessidade < hoje() && s.situacao === 'PENDENTE';
+    const sit = s.situacao === 'PENDENTE' ? st('Aguardando', 'warn') : s.situacao === 'ATENDIDA' ? st('Atendida', 'ok') + `<div class="sm mut">${esc((s.pedidos || []).join(', '))}</div>`
+      : st('Recusada', 'bad') + (s.motivoRecusa ? `<div class="sm mut" style="max-width:220px">${esc(s.motivoRecusa)}</div>` : '');
+    const env = s.resposta ? `<div class="sm mut">${s.resposta.publicada || s.resposta.socket ? 'resposta enviada' : 'resposta não enviada'}</div>` : '';
+    return `<tr><td class="mono">${esc(s.referencia)}<div class="sm mut" style="font-family:inherit">${esc(fmtDataHora(s.recebidaEm))} · ${esc(s.via)}</div></td>
+      <td>${esc(MOTIVO_SOL[d.motivo] || d.motivo)}${d.prioridade === 'URGENTE' ? ' ' + st('Urgente', 'bad') : ''}${d.observacao ? `<div class="sm mut" style="max-width:240px">${esc(d.observacao)}</div>` : ''}</td>
+      <td>${d.itens.map(i => `<div><span class="mono">${esc(i.sku)}</span> ${esc(i.produto)} <b>× ${i.quantidade}</b>${i.saldoAtual != null ? ` <span class="sm mut">(saldo ${i.saldoAtual}${i.estoqueMinimo != null ? ', mín. ' + i.estoqueMinimo : ''})</span>` : ''}</div>`).join('')}</td>
+      <td>${d.dataNecessidade ? esc(fmtData(d.dataNecessidade)) + (atrasada ? '<div class="sm" style="color:var(--bad)">passou da data</div>' : '') : '—'}</td>
+      <td>${sit}${env}</td>
+      <td><div class="acts">${s.situacao === 'PENDENTE' ? `<button class="btn sm pri" data-sol-ped="${esc(s.id)}">Criar pedido</button><button class="link bad" data-sol-rec="${esc(s.id)}">Recusar</button>` : ''}
+        <button class="link mut" data-sol-xml="${esc(s.id)}">XML</button>${s.resposta ? `<button class="link mut" data-sol-resp="${esc(s.id)}">Resposta</button>` : ''}</div></td></tr>`;
+  }).join('');
+}
+$('#fsol-q').oninput = e => { fsol.q = e.target.value; renderSolicitacoes(); };
+$('#fsol-sit').onchange = e => { fsol.sit = e.target.value; renderSolicitacoes(); };
+$('#tb-sol').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const id = b.dataset.solPed || b.dataset.solRec || b.dataset.solXml || b.dataset.solResp, s = (S.solicitacoes || []).find(x => x.id === id); if (!s) return;
+  if (b.dataset.solPed) {
+    const saldo = new Map(((est().saldo && est().saldo.produtos) || []).map(p => [p.sku, p]));
+    abrirPedido(null, { solicitacao: s.id, itens: s.dados.itens.map(i => ({ sku: i.sku, nome: i.produto, qtd: i.quantidade, preco: Number((saldo.get(i.sku) || {}).preco) || 0 })) });
+    if (s.dados.dataNecessidade && s.dados.dataNecessidade >= hoje()) $('#pd-prev').value = s.dados.dataNecessidade;
+    $('#pd-titulo').textContent = 'Novo pedido · solicitação ' + s.referencia;
+  }
+  if (b.dataset.solRec) { solRecusando = s; $('#rs-ref').textContent = s.referencia; $('#rs-motivo').value = ''; abrir('#dlg-recusa', '#rs-motivo'); }
+  if (b.dataset.solXml || b.dataset.solResp) {
+    const h = S.xmlHist.find(x => x.ref === s.referencia && x.contrato === (b.dataset.solXml ? 'solicitacao-compra' : 'resposta-solicitacao'));
+    const xml = b.dataset.solXml ? (h ? h.xml : '') : s.resposta.xml;
+    if (!xml) return toast('XML não encontrado no histórico deste navegador.', 'erro');
+    baixar((b.dataset.solXml ? 'solicitacao-compra_' : 'resposta-solicitacao_') + s.referencia + '.xml', xml);
+  }
+};
+$('#rs-confirmar').onclick = () => {
+  const s = solRecusando, motivo = $('#rs-motivo').value.trim(); if (!s) return;
+  if (motivo.length < 3) return toast('Escreva o motivo da recusa: ele vai para o Estoque.', 'erro');
+  s.situacao = 'RECUSADA'; s.motivoRecusa = motivo; s.respondidaEm = new Date().toISOString();
+  log('Solicitação ' + s.referencia + ' recusada: ' + motivo);
+  $('#dlg-recusa').close(); solRecusando = null; salvar(); renderTudo();
+  responderSolicitacao(s, { situacao: 'RECUSADA', motivo });
+  toast('Solicitação ' + s.referencia + ' recusada.', 'ok');
+};
+$('#sol-importar').onclick = () => { if (exigeModulo()) $('#f-sol').click(); };
+lerArquivo($('#f-sol'), t => { if (!/<([\w.-]+:)?solicitacaoCompra[\s>]/.test(t)) return toast('O arquivo não é uma solicitacaoCompra.', 'erro'); aplicarSolicitacao(t, 'arquivo'); });
+
+/* =============================================================================
    MOVIMENTAÇÕES (entradas e saídas de itens)
    ========================================================================== */
 const normalizaTipo = t => { const s = semAcento(t).toLowerCase().trim(); return (s.startsWith('sa') || s === 'out' || s === 's') ? 'saida' : 'entrada'; };
@@ -2222,7 +2361,7 @@ function gravarBaseSync(versao, dados){ try { localStorage.setItem(BASE_KEY, JSO
 let syncAviso = '';
 function pacoteDados(){
   const e = est(), f = fin();
-  const p = { seq: S.seq, consultaSeq: S.consultaSeq || 0, pedidos: S.pedidos, fornecedores: S.fornecedores, movimentacoes: S.movimentacoes || [],
+  const p = { seq: S.seq, consultaSeq: S.consultaSeq || 0, pedidos: S.pedidos, solicitacoes: S.solicitacoes || [], fornecedores: S.fornecedores, movimentacoes: S.movimentacoes || [],
     importados: S.importados || [], config: S.config, consultas: S.consultas || [], avisos: S.avisos || [], logs: (S.logs || []).slice(0, 300),
     estoque: { seq: e.seq, consultaSeq: e.consultaSeq, entradas: e.entradas, consultas: e.consultas }, fin: { externas: f.externas || [] } };
   syncAviso = '';
@@ -2230,7 +2369,7 @@ function pacoteDados(){
   return JSON.parse(JSON.stringify(p));
 }
 function aplicarDados(d){
-  ['seq', 'consultaSeq', 'pedidos', 'fornecedores', 'movimentacoes', 'importados', 'config', 'consultas', 'avisos', 'logs'].forEach(k => { if (d[k] !== undefined) S[k] = d[k]; });
+  ['seq', 'consultaSeq', 'pedidos', 'solicitacoes', 'fornecedores', 'movimentacoes', 'importados', 'config', 'consultas', 'avisos', 'logs'].forEach(k => { if (d[k] !== undefined) S[k] = d[k]; });
   if (d.estoque) Object.assign(est(), d.estoque);
   if (d.fin) fin().externas = d.fin.externas || [];
   S.movIniciadas = true; delete S.semente;
@@ -2252,7 +2391,7 @@ const juntaValor = (base, loc, srv) => (loc === undefined ? srv : srv === undefi
 function juntarDados(base, loc, srv){
   base = base || {};
   const r = {};
-  ['pedidos', 'fornecedores', 'movimentacoes', 'importados', 'consultas', 'avisos'].forEach(k => {
+  ['pedidos', 'solicitacoes', 'fornecedores', 'movimentacoes', 'importados', 'consultas', 'avisos'].forEach(k => {
     if (loc[k] === undefined) r[k] = srv[k]; else r[k] = juntaLista(base[k], loc[k], srv[k]);
   });
   r.seq = Math.max(loc.seq || 0, srv.seq || 0); r.consultaSeq = Math.max(loc.consultaSeq || 0, srv.consultaSeq || 0);
@@ -2487,6 +2626,7 @@ async function sockArquivo(conteudo, nome, para, rotulo, usarId){
   } catch (e) { toast('Falha ao enviar o arquivo: ' + e.message, 'erro'); log('Socket: falha ao enviar ' + arq + ' para ' + para + ': ' + e.message); return false; }
 }
 function rotearXml(t, via){
+  if (/<([\w.-]+:)?solicitacaoCompra[\s>]/.test(t)) return aplicarSolicitacao(t, via);
   if (/<([\w.-]+:)?respostaPendencias[\s>]/.test(t)) return aplicarRespostaPendencias(t, via);
   if (/<([\w.-]+:)?avisoPagamento[\s>]/.test(t)) return aplicarAvisoPagamento(t, via);
   if (RE_CONF.test(t) || RE_DISP.test(t) || (/<estoque[\s>]/.test(t) && t.includes('<produtos'))) return aplicarXmlEstoque(t, via);
@@ -2545,6 +2685,8 @@ const CONTRATOS = [
   { id: 'confirmacao-recebimento-v1', nome: 'confirmacao-recebimento-v1', sistema: 'Estoque', teste: x => RE_CONF.test(x), xsd: () => 'contratos/confirmacao-recebimento-v1.xsd' },
   { id: 'consulta-disponibilidade', nome: 'consultaDisponibilidade', sistema: 'Estoque', teste: x => /<consultaDisponibilidade[\s>]/.test(x), xsd: () => 'contratos/disponibilidade-estoque.xsd' },
   { id: 'resposta-disponibilidade', nome: 'respostaDisponibilidade', sistema: 'Estoque', teste: x => RE_DISP.test(x), xsd: () => 'contratos/disponibilidade-estoque.xsd' },
+  { id: 'solicitacao-compra', nome: 'solicitacaoCompra', sistema: 'Estoque', teste: x => x.includes('urn:compras:solicitacao-compra:1.0'), xsd: () => 'contratos/solicitacao-compra-v1.xsd' },
+  { id: 'resposta-solicitacao', nome: 'respostaSolicitacao', sistema: 'Estoque', teste: x => x.includes('urn:compras:resposta-solicitacao:1.0'), xsd: () => 'contratos/resposta-solicitacao-v1.xsd' },
   { id: 'saida-v2', nome: 'saida-v2', sistema: 'Financeiro', teste: x => x.includes(NS_SAIDA), xsd: () => FIN_XSD + 'saida-v2.xsd' },
   { id: 'pendencias-consulta', nome: 'consultaPendencias', sistema: 'Financeiro', teste: x => x.includes(NS_PEND) && /<consultaPendencias[\s>]/.test(x), xsd: () => FIN_XSD + 'pendencias-fornecedor-v1.xsd' },
   { id: 'pendencias-resposta', nome: 'respostaPendencias', sistema: 'Financeiro', teste: x => /<([\w.-]+:)?respostaPendencias[\s>]/.test(x), xsd: () => FIN_XSD + 'pendencias-fornecedor-v1.xsd' },
@@ -2749,6 +2891,8 @@ const SERVICOS = [
   ['Saldo do estoque', 'REST', 'POST', '/saldos-estoque', 'estoque.xsd (v2)', 'estoque', 'Opcional: o Compras também busca o saldo na API do Estoque.'],
   ['Aviso de pagamento', 'REST', 'POST', '/avisos-pagamento', 'aviso-pagamento-v1 (XML ou JSON)', 'financeiro', 'Opcional: o Compras já busca os avisos no Finanweb.'],
   ['Resposta de pendências', 'REST', 'POST', '/respostas-pendencias', 'pendencias-fornecedor-v1', 'financeiro', 'Opcional: o Compras consulta GET /pendencias do Finanweb.'],
+  ['Solicitação de compra', 'REST', 'POST', '/solicitacoes-compra', 'solicitacao-compra-v1.xsd', 'estoque', 'O Estoque pede uma compra; aparece em Solicitações no Compras.'],
+  ['Resposta da solicitação', 'REST', 'GET', '/respostas-solicitacao?desde=<seq>', 'resposta-solicitacao-v1.xsd', 'estoque', 'ATENDIDA com o número do pedido, ou RECUSADA com o motivo.'],
   ['Mensagens (qualquer tipo)', 'REST', 'POST', '/mensagens', 'qualquer um acima', 'estoque, financeiro', 'O tipo é descoberto pela raiz e pelo namespace do XML.'],
   ['Recebimento', 'SOAP', 'ListarRecebimentos', '', 'WSDL', 'estoque', 'Mesma fila da API REST. Body: <cs:listarRecebimentos><cs:desde>0</cs:desde></cs:listarRecebimentos>.'],
   ['Previsão de entrega', 'SOAP', 'ListarPrevisoesEntrega', '', 'WSDL', 'estoque', 'Mesma fila da API REST.'],
@@ -2758,6 +2902,8 @@ const SERVICOS = [
   ['Saldo do estoque', 'SOAP', 'EnviarSaldo', '', 'estoque.xsd (v2)', 'estoque', 'Opcional. Dentro de <cs:enviarSaldo>.'],
   ['Aviso de pagamento', 'SOAP', 'EnviarAvisoPagamento', '', 'aviso-pagamento-v1', 'financeiro', 'Opcional. Dentro de <cs:enviarAvisoPagamento>.'],
   ['Resposta de pendências', 'SOAP', 'EnviarRespostaPendencias', '', 'pendencias-fornecedor-v1', 'financeiro', 'Opcional. Dentro de <cs:enviarRespostaPendencias>.'],
+  ['Solicitação de compra', 'SOAP', 'EnviarSolicitacaoCompra', '', 'solicitacao-compra-v1.xsd', 'estoque', 'A solicitacaoCompra direto no soap:Body.'],
+  ['Resposta da solicitação', 'SOAP', 'ListarRespostasSolicitacao', '', 'WSDL', 'estoque', 'Mesma fila da API REST.'],
   ['Mensagens (qualquer tipo)', 'SOAP', 'EnviarMensagem', '', 'qualquer um acima', 'estoque, financeiro', 'Dentro de <cs:enviarMensagem>; o tipo é descoberto pelo XML.'],
   ['Recebimento, previsão, consulta', 'SOCKET', 'arquivo .xml', '#compras', 'mesmos XSDs', 'estoque', 'Pelo servidor da turma, em privado para o ID do setor.'],
 ];
@@ -2778,6 +2924,8 @@ const CONTRATOS_TELA = [
   ['saida-v2', NS_SAIDA + ' · <movimento tipo="SAIDA">', 'Compras → Financeiro', FIN_XSD + 'saida-v2.xsd', ''],
   ['pendencias-fornecedor-v1', NS_PEND, 'Compras ↔ Financeiro', FIN_XSD + 'pendencias-fornecedor-v1.xsd', ''],
   ['aviso-pagamento-v1', NS_AVISO, 'Financeiro → Compras', FIN_XSD + 'aviso-pagamento-v1.xsd', ''],
+  ['solicitacao-compra-v1', 'urn:compras:solicitacao-compra:1.0 · <solicitacaoCompra>', 'Estoque → Compras', 'contratos/solicitacao-compra-v1.xsd', 'contratos/solicitacao-compra-v1.xml'],
+  ['resposta-solicitacao-v1', 'urn:compras:resposta-solicitacao:1.0 · <respostaSolicitacao>', 'Compras → Estoque', 'contratos/resposta-solicitacao-v1.xsd', 'contratos/resposta-solicitacao-v1.xml'],
   ['servico-compras-v1 (SOAP)', 'urn:compras:servico:1.0 · cabeçalho controle, listagens e invólucros', 'Estoque, Financeiro → Compras', 'contratos/servico-compras-v1.xsd', SOAP_URL + '?wsdl', 'WSDL'],
 ];
 const exemploSoap = () => [

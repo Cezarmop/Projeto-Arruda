@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Schema da solicitacao de compra, versao 1.0: o Estoque pede ao Compras que
+  compre um ou mais produtos (por exemplo, quando o saldo chega ao minimo).
+
+  O Compras responde com respostaSolicitacao (resposta-solicitacao-v1.xsd):
+  ATENDIDA, com o numero do pedido criado, ou RECUSADA, com o motivo.
+
+  Envio: POST /api/v1/solicitacoes-compra (Bearer com a chave do Estoque),
+  operacao SOAP EnviarSolicitacaoCompra, socket (arquivo) ou importacao manual.
+  A mesma referencia enviada de novo, com o mesmo conteudo, nao muda nada.
+
+  Regras de validacao (mesma numeracao dos outros contratos):
+    R2  motivo e prioridade: enumeracoes fechadas.
+    R4  datas: xs:date (AAAA-MM-DD).
+    R6  textos obrigatorios nao vazios e sem espaco nas pontas.
+    R7  origem: quem envia, em minusculas (estoque).
+    R8  referencia: identificador da solicitacao no Estoque, sem espacos, ate 60.
+    R10 quantidade: inteiro maior que zero; saldo e minimo: inteiros >= 0.
+    R11 SKU: maiusculas, digitos e hifen, ate 40.
+    R12 SKU unico dentro da solicitacao.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:s="urn:compras:solicitacao-compra:1.0"
+           targetNamespace="urn:compras:solicitacao-compra:1.0"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+
+  <xs:simpleType name="texto">
+    <xs:restriction base="xs:string"><xs:minLength value="1"/><xs:maxLength value="120"/><xs:pattern value="\S(.*\S)?"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="textoLongo">
+    <xs:restriction base="xs:string"><xs:minLength value="1"/><xs:maxLength value="500"/><xs:pattern value="\S(.*\S)?"/></xs:restriction>
+  </xs:simpleType>
+  <!-- R7 -->
+  <xs:simpleType name="identificadorSistema">
+    <xs:restriction base="xs:string"><xs:pattern value="[a-z][a-z0-9\-]{1,29}"/></xs:restriction>
+  </xs:simpleType>
+  <!-- R8 -->
+  <xs:simpleType name="referencia">
+    <xs:restriction base="xs:string"><xs:pattern value="[A-Za-z0-9][A-Za-z0-9._/\-]{0,59}"/></xs:restriction>
+  </xs:simpleType>
+  <!-- R11 -->
+  <xs:simpleType name="sku">
+    <xs:restriction base="xs:string"><xs:pattern value="[A-Z0-9][A-Z0-9\-]{0,39}"/></xs:restriction>
+  </xs:simpleType>
+  <!-- R2 -->
+  <xs:simpleType name="motivo">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="ESTOQUE_MINIMO"/>   <!-- saldo no minimo ou abaixo -->
+      <xs:enumeration value="SEM_SALDO"/>        <!-- saldo zerado -->
+      <xs:enumeration value="REPOSICAO"/>        <!-- reposicao planejada -->
+      <xs:enumeration value="PRODUTO_NOVO"/>     <!-- produto que o Estoque ainda nao tem -->
+      <xs:enumeration value="OUTRO"/>            <!-- explicar em observacao -->
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="prioridade">
+    <xs:restriction base="xs:string"><xs:enumeration value="NORMAL"/><xs:enumeration value="URGENTE"/></xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="item">
+    <xs:sequence>
+      <xs:element name="sku" type="s:sku"/>
+      <xs:element name="produto" type="s:texto"/>
+      <xs:element name="quantidade" type="xs:positiveInteger"/>                     <!-- R10: quanto comprar -->
+      <xs:element name="saldoAtual" type="xs:nonNegativeInteger" minOccurs="0"/>
+      <xs:element name="estoqueMinimo" type="xs:nonNegativeInteger" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="solicitacaoCompra">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="origem" type="s:identificadorSistema"/>
+        <xs:element name="dataSolicitacao" type="xs:date"/>
+        <xs:element name="motivo" type="s:motivo"/>
+        <xs:element name="prioridade" type="s:prioridade" minOccurs="0"/>             <!-- padrao NORMAL -->
+        <xs:element name="dataNecessidade" type="xs:date" minOccurs="0"/>            <!-- ate quando precisa -->
+        <xs:element name="observacao" type="s:textoLongo" minOccurs="0"/>
+        <xs:element name="itens">
+          <xs:complexType>
+            <xs:sequence><xs:element name="item" type="s:item" maxOccurs="200"/></xs:sequence>
+          </xs:complexType>
+          <xs:unique name="skuUnico"><xs:selector xpath="s:item"/><xs:field xpath="s:sku"/></xs:unique>   <!-- R12 -->
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="versao" type="xs:string" use="required" fixed="1.0"/>
+      <xs:attribute name="referencia" type="s:referencia" use="required"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

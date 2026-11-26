@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<respostaSolicitacao xmlns="urn:compras:resposta-solicitacao:1.0" versao="1.0" referencia="SOL-EST-0001">
+  <origem>compras</origem>
+  <dataResposta>2026-11-26</dataResposta>
+  <situacao>ATENDIDA</situacao>
+  <pedido>PC-1011</pedido>
+  <fornecedor>Distribuidora de Informatica</fornecedor>
+  <dataPrevista>2026-12-03</dataPrevista>
+  <itens>
+    <item><sku>MOUSE-01</sku><quantidade>30</quantidade></item>
+    <item><sku>TECLADO-02</sku><quantidade>15</quantidade></item>
+  </itens>
+</respostaSolicitacao>

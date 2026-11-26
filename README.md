@@ -50,6 +50,8 @@ vercel.json       rotas /api/v1/* e cabeçalhos dos XSD
 | `POST /saldos-estoque` | estoque | saldo no XML v2 (opcional) |
 | `POST /avisos-pagamento` | financeiro | aviso de pagamento, JSON do Finanweb ou XML |
 | `POST /respostas-pendencias` | financeiro | respostaPendencias (opcional) |
+| `POST /solicitacoes-compra` | estoque | solicitacao-compra-v1: o Estoque pede uma compra |
+| `GET /respostas-solicitacao?desde=<seq>` | estoque | resposta-solicitacao-v1: ATENDIDA (com o pedido) ou RECUSADA |
 | `POST /mensagens` | estoque, financeiro | qualquer um dos XMLs acima |
 
 Respostas: `202` recebida, `200` duplicada, `401` chave inválida, `403` rota de outro setor, `422` fora do contrato.
@@ -61,6 +63,7 @@ Respostas: `202` recebida, `200` duplicada, `401` chave inválida, `403` rota de
 | `ConfirmarRecebimento` | estoque | `<confirmacaoRecebimento>` direto no Body |
 | `ResponderDisponibilidade`, `EnviarSaldo` | estoque | o XML dentro de `<cs:responderDisponibilidade>` / `<cs:enviarSaldo>` |
 | `EnviarAvisoPagamento`, `EnviarRespostaPendencias` | financeiro | o XML dentro do invólucro da operação |
+| `EnviarSolicitacaoCompra`, `ListarRespostasSolicitacao` | estoque | `<solicitacaoCompra>` direto no Body / listagem das respostas |
 | `EnviarMensagem` | estoque, financeiro | qualquer XML acima |
 
 `cs` = `urn:compras:servico:1.0` ([servico-compras-v1.xsd](contratos/servico-compras-v1.xsd)). SOAPAction `urn:compras:servico:1.0#<Operação>` (opcional: sem ela a operação vem do corpo). Envios respondem `<cs:confirmacaoEnvio>` com `RECEBIDA` ou `DUPLICADA`; erros vêm em `soap:Fault` com HTTP 401, 403 ou 500.

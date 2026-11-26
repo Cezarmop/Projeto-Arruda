@@ -37,12 +37,15 @@ const ROTAS = [
   ['POST', 'v1/saldos-estoque', rReceber, 'Saldo no XML v2 do Estoque', 'estoque'],
   ['POST', 'v1/avisos-pagamento', rReceber, 'avisoPagamento, XML ou JSON do Finanweb', 'financeiro'],
   ['POST', 'v1/respostas-pendencias', rReceber, 'respostaPendencias', 'financeiro'],
+  ['POST', 'v1/solicitacoes-compra', rReceber, 'solicitacao-compra-v1: o Estoque pede uma compra', 'estoque'],
   ['GET', 'v1/recebimentos', rListarPub, 'recebimento-v1 publicados (?desde=seq)', 'estoque'],
   ['GET', 'v1/recebimentos/{seq}', rLerPub, 'Um recebimento-v1 em XML', 'estoque'],
   ['GET', 'v1/previsoes-entrega', rListarPub, 'previsao-entrega-v1 publicadas (?desde=seq)', 'estoque'],
   ['GET', 'v1/previsoes-entrega/{seq}', rLerPub, 'Uma previsao-entrega-v1 em XML', 'estoque'],
   ['GET', 'v1/consultas-disponibilidade', rListarPub, 'consultaDisponibilidade publicadas (?desde=seq)', 'estoque'],
   ['GET', 'v1/consultas-disponibilidade/{seq}', rLerPub, 'Uma consultaDisponibilidade em XML', 'estoque'],
+  ['GET', 'v1/respostas-solicitacao', rListarPub, 'resposta-solicitacao-v1: o que o Compras fez com cada solicitação (?desde=seq)', 'estoque'],
+  ['GET', 'v1/respostas-solicitacao/{seq}', rLerPub, 'Uma resposta-solicitacao-v1 em XML', 'estoque'],
 ];
 
 async function rIndice(req, res){

@@ -10,6 +10,8 @@
  *     Body: <cs:listarRecebimentos><cs:desde>0</cs:desde><cs:limite>50</cs:limite></cs:listarRecebimentos>
  *     Resposta: <cs:publicacoes tipo desde ultimo><cs:publicacao seq referencia publicadoEm> XML </cs:publicacao>...
  *   ConfirmarRecebimento     Body: <confirmacaoRecebimento xmlns="urn:compras:confirmacao-recebimento:1.0">   (estoque)
+ *   EnviarSolicitacaoCompra  Body: <solicitacaoCompra xmlns="urn:compras:solicitacao-compra:1.0">            (estoque)
+ *   ListarRespostasSolicitacao: como as outras listagens; devolve as respostaSolicitacao publicadas      (estoque)
  *   ResponderDisponibilidade Body: <cs:responderDisponibilidade><respostaDisponibilidade>…</cs:responderDisponibilidade> (estoque)
  *   EnviarSaldo              Body: <cs:enviarSaldo><estoque versao="2">…</cs:enviarSaldo>                       (estoque)
  *   EnviarAvisoPagamento     Body: <cs:enviarAvisoPagamento><avisoPagamento xmlns="urn:finanweb:aviso-pagamento:1.0">…   (financeiro)
@@ -30,6 +32,8 @@ const OPS = {
   ListarRecebimentos:             { lista: 'recebimento', el: 'listarRecebimentos' },
   ListarPrevisoesEntrega:         { lista: 'previsao-entrega', el: 'listarPrevisoesEntrega' },
   ListarConsultasDisponibilidade: { lista: 'consulta-disponibilidade', el: 'listarConsultasDisponibilidade' },
+  ListarRespostasSolicitacao:     { lista: 'resposta-solicitacao', el: 'listarRespostasSolicitacao' },
+  EnviarSolicitacaoCompra:        { tipo: 'solicitacao-compra', el: 'enviarSolicitacaoCompra' },
   ConfirmarRecebimento:           { tipo: 'confirmacao-recebimento', el: 'confirmarRecebimento' },
   ResponderDisponibilidade:       { tipo: 'resposta-disponibilidade', el: 'responderDisponibilidade' },
   EnviarSaldo:                    { tipo: 'saldo-estoque', el: 'enviarSaldo' },
@@ -113,6 +117,8 @@ function wsdl(base){
     op('ListarRecebimentos', 'cs:listarRecebimentos', 'cs:publicacoes'),
     op('ListarPrevisoesEntrega', 'cs:listarPrevisoesEntrega', 'cs:publicacoes'),
     op('ListarConsultasDisponibilidade', 'cs:listarConsultasDisponibilidade', 'cs:publicacoes'),
+    op('ListarRespostasSolicitacao', 'cs:listarRespostasSolicitacao', 'cs:publicacoes'),
+    op('EnviarSolicitacaoCompra', 'sc:solicitacaoCompra', 'cs:confirmacaoEnvio'),
     op('ConfirmarRecebimento', 'cr:confirmacaoRecebimento', 'cs:confirmacaoEnvio'),
     op('ResponderDisponibilidade', 'cs:responderDisponibilidade', 'cs:confirmacaoEnvio'),
     op('EnviarSaldo', 'cs:enviarSaldo', 'cs:confirmacaoEnvio'),
@@ -124,12 +130,13 @@ function wsdl(base){
 <wsdl:definitions name="Compras" targetNamespace="${NS}"
     xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
     xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:tns="${NS}" xmlns:cs="${NS}"
-    xmlns:cr="urn:compras:confirmacao-recebimento:1.0">
+    xmlns:cr="urn:compras:confirmacao-recebimento:1.0" xmlns:sc="urn:compras:solicitacao-compra:1.0">
   <wsdl:documentation>Serviço SOAP 1.1 do Compras (document/literal). Chave do setor no cabeçalho HTTP Authorization: Bearer &lt;chave&gt;, a mesma da API REST (${base}/api/v1). Contratos: ${C}</wsdl:documentation>
   <wsdl:types>
     <xsd:schema>
       <xsd:import namespace="${NS}" schemaLocation="${C}servico-compras-v1.xsd"/>
       <xsd:import namespace="urn:compras:confirmacao-recebimento:1.0" schemaLocation="${C}confirmacao-recebimento-v1.xsd"/>
+      <xsd:import namespace="urn:compras:solicitacao-compra:1.0" schemaLocation="${C}solicitacao-compra-v1.xsd"/>
     </xsd:schema>
   </wsdl:types>
   <wsdl:message name="Controle"><wsdl:part name="controle" element="cs:controle"/></wsdl:message>

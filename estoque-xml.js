@@ -15,6 +15,10 @@
  *   gerarConsultaDisponibilidade()  <consultaDisponibilidade>
  *   lerRespostaDisponibilidade()    <respostaDisponibilidade> com produto ou erro
  *
+ * Solicitacao de compra (Estoque -> Compras):
+ *   lerSolicitacaoCompra()       solicitacao-compra-v1.xsd  <solicitacaoCompra>
+ *   gerarRespostaSolicitacao()   resposta-solicitacao-v1.xsd <respostaSolicitacao> (ATENDIDA ou RECUSADA)
+ *
  * Uso no navegador: tag script com src="estoque-xml.js" -> window.EstoqueXML
  * Uso no Node:      const EstoqueXML = require('./estoque-xml.js')
  */
@@ -649,6 +653,73 @@
     return { idConsulta, produtoCodigo, nome: n, quantidadeDisponivel: parseInt(q, 10) };
   }
 
+
+  // ---------------------------------------------------------------- solicitacao de compra (Estoque -> Compras)
+  // contratos/solicitacao-compra-v1.xsd e contratos/resposta-solicitacao-v1.xsd
+  const NS_SOL = 'urn:compras:solicitacao-compra:1.0';
+  const NS_RSOL = 'urn:compras:resposta-solicitacao:1.0';
+  const MOTIVOS_SOL = ['ESTOQUE_MINIMO', 'SEM_SALDO', 'REPOSICAO', 'PRODUTO_NOVO', 'OUTRO'];
+  const RE_DIA = /^\d{4}-\d{2}-\d{2}$/;
+
+  /** Le e valida a solicitacaoCompra. Erros de contrato viram excecao com a lista em err.erros. */
+  function lerSolicitacaoCompra(xmlString, Parser = root.DOMParser) {
+    const t = String(xmlString || '').replace(/^﻿/, '');
+    if (/<!DOCTYPE|<!ENTITY/i.test(t)) throw new Error('XML com DTD ou entidades não é aceito');
+    const doc = new Parser().parseFromString(t, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length) throw new Error('XML mal formado');
+    const raiz = doc.documentElement;
+    const nome = (n) => n.localName || n.nodeName.replace(/^.*:/, '');
+    const filhos = (el) => (el ? Array.from(el.childNodes).filter((n) => n.nodeType === 1) : []);
+    const filho = (el, tg) => filhos(el).find((n) => nome(n) === tg);
+    const txt = (el, tg) => { const n = filho(el, tg); return n ? n.textContent.trim() : ''; };
+    if (nome(raiz) !== 'solicitacaoCompra') throw new Error('A raiz deve ser <solicitacaoCompra>');
+    const e = [];
+    if (raiz.namespaceURI !== NS_SOL) e.push(`namespace deve ser ${NS_SOL}`);
+    if (raiz.getAttribute('versao') !== '1.0') e.push('versao deve ser 1.0');
+    const referencia = raiz.getAttribute('referencia') || '';
+    if (!RE_REF.test(referencia)) e.push('referencia ausente ou inválida (sem espaços, até 60)');
+    const s = { referencia, origem: txt(raiz, 'origem') || 'estoque', dataSolicitacao: txt(raiz, 'dataSolicitacao'), motivo: txt(raiz, 'motivo'),
+      prioridade: txt(raiz, 'prioridade') || 'NORMAL', dataNecessidade: txt(raiz, 'dataNecessidade') || undefined, observacao: txt(raiz, 'observacao') || undefined };
+    if (!RE_DIA.test(s.dataSolicitacao)) e.push('dataSolicitacao deve ser AAAA-MM-DD');
+    if (s.dataNecessidade && !RE_DIA.test(s.dataNecessidade)) e.push('dataNecessidade deve ser AAAA-MM-DD');
+    if (!MOTIVOS_SOL.includes(s.motivo)) e.push(`motivo deve ser ${MOTIVOS_SOL.join(', ')}`);
+    if (!['NORMAL', 'URGENTE'].includes(s.prioridade)) e.push('prioridade deve ser NORMAL ou URGENTE');
+    const vistos = new Set();
+    s.itens = filhos(filho(raiz, 'itens')).filter((n) => nome(n) === 'item').map((it, i) => {
+      const c = `item[${i + 1}]`, sku = normalizarSku(txt(it, 'sku')), produto = colapsar(txt(it, 'produto')), q = txt(it, 'quantidade');
+      if (!sku || !RE_SKU.test(sku)) e.push(`${c}: sku inválido`);
+      if (vistos.has(sku)) e.push(`${c}: sku ${sku} repetido`); vistos.add(sku);
+      if (!produto) e.push(`${c}: produto vazio`);
+      if (!/^\d+$/.test(q) || parseInt(q, 10) < 1) e.push(`${c}: quantidade deve ser inteiro maior que zero`);
+      const opc = (tg) => { const v = txt(it, tg); if (!v) return undefined; if (!/^\d+$/.test(v)) { e.push(`${c}: ${tg} deve ser inteiro >= 0`); return undefined; } return parseInt(v, 10); };
+      return { sku, produto, quantidade: parseInt(q, 10) || 0, saldoAtual: opc('saldoAtual'), estoqueMinimo: opc('estoqueMinimo') };
+    });
+    if (!s.itens.length) e.push('a solicitação precisa de ao menos um item');
+    if (e.length) { const err = new Error('Solicitação fora do contrato: ' + e.join('; ')); err.erros = e; throw err; }
+    return s;
+  }
+
+  /** Gera a respostaSolicitacao: { referencia, situacao: ATENDIDA|RECUSADA, pedido?, fornecedor?, dataPrevista?, motivo?, itens?: [{sku, quantidade}] } */
+  function gerarRespostaSolicitacao(r) {
+    if (!RE_REF.test(r.referencia || '')) throw new Error('referencia inválida');
+    if (!['ATENDIDA', 'RECUSADA'].includes(r.situacao)) throw new Error('situacao deve ser ATENDIDA ou RECUSADA');
+    const hojeLocal = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+    const L = ['<?xml version="1.0" encoding="UTF-8"?>', `<respostaSolicitacao xmlns="${NS_RSOL}" versao="1.0" referencia="${esc(r.referencia)}">`,
+      '  <origem>compras</origem>', `  <dataResposta>${r.dataResposta || hojeLocal()}</dataResposta>`, `  <situacao>${r.situacao}</situacao>`];
+    if (r.pedido) L.push(`  <pedido>${esc(r.pedido)}</pedido>`);
+    if (r.fornecedor && colapsar(r.fornecedor)) L.push(`  <fornecedor>${esc(colapsar(r.fornecedor).slice(0, 120))}</fornecedor>`);
+    if (r.dataPrevista && RE_DIA.test(r.dataPrevista)) L.push(`  <dataPrevista>${r.dataPrevista}</dataPrevista>`);
+    if (r.motivo && colapsar(r.motivo)) L.push(`  <motivo>${esc(colapsar(r.motivo).slice(0, 500))}</motivo>`);
+    const itens = (r.itens || []).filter((i) => normalizarSku(i.sku) && i.quantidade > 0);
+    if (itens.length) {
+      L.push('  <itens>');
+      itens.forEach((i) => L.push(`    <item><sku>${normalizarSku(i.sku)}</sku><quantidade>${Math.trunc(i.quantidade)}</quantidade></item>`));
+      L.push('  </itens>');
+    }
+    L.push('</respostaSolicitacao>');
+    return L.join('\n') + '\n';
+  }
+
   // ---------------------------------------------------------------- HTTP com a API do Estoque
   /** Valida no Estoque (POST /api/xml/validar) e, se ok, importa (POST /api/xml). */
   async function enviarParaEstoque(baseUrl, xml, { somenteValidar = false } = {}) {
@@ -684,6 +755,7 @@
   const api = { gerarXml, loteDeRecebimentos, lerXml, sugestoesDeCompra, enviarParaEstoque,
     buscarDoEstoque, baixarXml, normalizarSku, formatarPreco,
     gerarPrevisoes, gerarRecebimentos, gerarConfirmacao, lerComprasEstoque, aplicarConfirmacao,
-    gerarConsultaDisponibilidade, gerarRespostaDisponibilidade, lerRespostaDisponibilidade };
+    gerarConsultaDisponibilidade, gerarRespostaDisponibilidade, lerRespostaDisponibilidade,
+    lerSolicitacaoCompra, gerarRespostaSolicitacao };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.EstoqueXML = api;
 })(typeof window !== 'undefined' ? window : globalThis);

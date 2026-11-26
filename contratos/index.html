@@ -86,6 +86,20 @@
 
   <p>O saldo de produtos continua no formato do próprio Estoque (<code>estoque.xsd</code> v2), que também aceita as entradas só com SKU e quantidade. O recebimento-v1 é o envio completo.</p>
 
+  <h2>Solicitação de compra (Estoque → Compras)</h2>
+  <div class="msg">
+    <div class="tipo">Estoque → Compras · envio · urn:compras:solicitacao-compra:1.0</div>
+    <h3>Solicitação de compra</h3>
+    <p>O Estoque pede ao Compras que compre produtos: referência da solicitação, motivo (<code>ESTOQUE_MINIMO</code>, <code>SEM_SALDO</code>, <code>REPOSICAO</code>, <code>PRODUTO_NOVO</code> ou <code>OUTRO</code>), prioridade, data em que precisa e os itens com SKU, produto e quantidade (saldo atual e mínimo são opcionais). Envio por <code>POST /api/v1/solicitacoes-compra</code>, pela operação SOAP <code>EnviarSolicitacaoCompra</code> ou pelo socket. A mesma referência reenviada com o mesmo conteúdo não muda nada.</p>
+    <div class="files"><a href="solicitacao-compra-v1.xsd">solicitacao-compra-v1.xsd</a><a href="solicitacao-compra-v1.xml">exemplo</a></div>
+  </div>
+  <div class="msg">
+    <div class="tipo">Compras → Estoque · resposta · urn:compras:resposta-solicitacao:1.0</div>
+    <h3>Resposta da solicitação</h3>
+    <p><code>ATENDIDA</code>, com o número do pedido, o fornecedor, a previsão de entrega e as quantidades pedidas, ou <code>RECUSADA</code>, com o motivo. O Estoque busca em <code>GET /api/v1/respostas-solicitacao?desde=&lt;seq&gt;</code>, pela operação SOAP <code>ListarRespostasSolicitacao</code> ou recebe pelo socket.</p>
+    <div class="files"><a href="resposta-solicitacao-v1.xsd">resposta-solicitacao-v1.xsd</a><a href="resposta-solicitacao-v1.xml">exemplo</a></div>
+  </div>
+
   <h2>Webservice SOAP</h2>
   <p>As mesmas mensagens também trafegam pelo webservice SOAP 1.1 do Compras em <code>https://compras.cezbyte.com.br/api/soap</code>, com a chave do setor em <code>Authorization: Bearer</code>. O cabeçalho de controle, as listagens e os invólucros estão no esquema abaixo; os documentos dentro deles seguem os contratos desta página.</p>
   <div class="files"><a href="../soap/">Documentação e testador do SOAP</a><a href="servico-compras-v1.xsd">servico-compras-v1.xsd</a><a href="/api/soap?wsdl">WSDL</a></div>

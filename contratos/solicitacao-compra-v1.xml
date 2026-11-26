@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<solicitacaoCompra xmlns="urn:compras:solicitacao-compra:1.0" versao="1.0" referencia="SOL-EST-0001">
+  <origem>estoque</origem>
+  <dataSolicitacao>2026-11-26</dataSolicitacao>
+  <motivo>ESTOQUE_MINIMO</motivo>
+  <prioridade>URGENTE</prioridade>
+  <dataNecessidade>2026-12-05</dataNecessidade>
+  <observacao>Saldo abaixo do minimo depois das vendas da semana.</observacao>
+  <itens>
+    <item>
+      <sku>MOUSE-01</sku>
+      <produto>Mouse sem fio</produto>
+      <quantidade>30</quantidade>
+      <saldoAtual>4</saldoAtual>
+      <estoqueMinimo>10</estoqueMinimo>
+    </item>
+    <item>
+      <sku>TECLADO-02</sku>
+      <produto>Teclado ABNT2</produto>
+      <quantidade>15</quantidade>
+    </item>
+  </itens>
+</solicitacaoCompra>

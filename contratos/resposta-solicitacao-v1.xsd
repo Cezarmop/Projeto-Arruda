@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Schema da resposta a uma solicitacao de compra, versao 1.0: o Compras
+  informa ao Estoque o que fez com a solicitacao (solicitacao-compra-v1.xsd).
+
+  Situacao:
+    ATENDIDA   o Compras criou o pedido; vem o numero, o fornecedor, a previsao
+               de entrega e as quantidades pedidas por SKU
+    RECUSADA   nada foi comprado; vem o motivo
+
+  Leitura pelo Estoque: GET /api/v1/respostas-solicitacao?desde=<seq>
+  (Bearer com a chave do Estoque), operacao SOAP ListarRespostasSolicitacao,
+  ou pelo socket. A referencia e a mesma da solicitacao.
+
+  Regras: R2 situacao fechada; R4 datas xs:date; R6 textos sem espaco nas
+  pontas; R7 origem compras; R8 referencia da solicitacao; R11 SKU.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:r="urn:compras:resposta-solicitacao:1.0"
+           targetNamespace="urn:compras:resposta-solicitacao:1.0"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+
+  <xs:simpleType name="texto">
+    <xs:restriction base="xs:string"><xs:minLength value="1"/><xs:maxLength value="120"/><xs:pattern value="\S(.*\S)?"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="textoLongo">
+    <xs:restriction base="xs:string"><xs:minLength value="1"/><xs:maxLength value="500"/><xs:pattern value="\S(.*\S)?"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="identificadorSistema">
+    <xs:restriction base="xs:string"><xs:pattern value="[a-z][a-z0-9\-]{1,29}"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="referencia">
+    <xs:restriction base="xs:string"><xs:pattern value="[A-Za-z0-9][A-Za-z0-9._/\-]{0,59}"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="sku">
+    <xs:restriction base="xs:string"><xs:pattern value="[A-Z0-9][A-Z0-9\-]{0,39}"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="situacao">
+    <xs:restriction base="xs:string"><xs:enumeration value="ATENDIDA"/><xs:enumeration value="RECUSADA"/></xs:restriction>
+  </xs:simpleType>
+
+  <xs:element name="respostaSolicitacao">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="origem" type="r:identificadorSistema"/>
+        <xs:element name="dataResposta" type="xs:date"/>
+        <xs:element name="situacao" type="r:situacao"/>
+        <xs:element name="pedido" type="r:referencia" minOccurs="0"/>        <!-- ATENDIDA: numero do pedido (PC-...) -->
+        <xs:element name="fornecedor" type="r:texto" minOccurs="0"/>
+        <xs:element name="dataPrevista" type="xs:date" minOccurs="0"/>       <!-- previsao de entrega -->
+        <xs:element name="motivo" type="r:textoLongo" minOccurs="0"/>        <!-- RECUSADA: por que -->
+        <xs:element name="itens" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="item" maxOccurs="200">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="sku" type="r:sku"/>
+                    <xs:element name="quantidade" type="xs:positiveInteger"/>   <!-- quantidade pedida -->
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="versao" type="xs:string" use="required" fixed="1.0"/>
+      <xs:attribute name="referencia" type="r:referencia" use="required"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

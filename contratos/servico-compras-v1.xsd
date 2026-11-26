@@ -30,6 +30,7 @@
   <xs:element name="listarRecebimentos" type="cs:PedidoListagem"/>
   <xs:element name="listarPrevisoesEntrega" type="cs:PedidoListagem"/>
   <xs:element name="listarConsultasDisponibilidade" type="cs:PedidoListagem"/>
+  <xs:element name="listarRespostasSolicitacao" type="cs:PedidoListagem"/>
 
   <xs:element name="publicacoes">
     <xs:complexType>
@@ -59,6 +60,7 @@
   <xs:element name="enviarAvisoPagamento" type="cs:Involucro"/>
   <xs:element name="enviarRespostaPendencias" type="cs:Involucro"/>
   <xs:element name="enviarMensagem" type="cs:Involucro"/>
+  <xs:element name="enviarSolicitacaoCompra" type="cs:Involucro"/>
 
   <!-- resposta dos envios -->
   <xs:element name="confirmacaoEnvio">
