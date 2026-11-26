@@ -20,9 +20,14 @@ const MAX_LISTA = 2000;
 const SETORES_VALIDOS = /^[a-z][a-z0-9-]{1,29}$/;
 
 // --------------------------------------------------------------------------- Redis (Upstash REST)
+// aceita qualquer prefixo que a integração da Vercel tenha usado (KV_, STORAGE_KV_, UPSTASH_REDIS_ ...)
 function redisCfg(){
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  const env = process.env;
+  let url = env.KV_REST_API_URL || env.UPSTASH_REDIS_REST_URL, token = env.KV_REST_API_TOKEN || env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) {
+    const k = Object.keys(env).find(n => /(KV_REST_API|REDIS_REST)_URL$/.test(n) && env[n.replace(/_URL$/, '_TOKEN')]);
+    if (k) { url = env[k]; token = env[k.replace(/_URL$/, '_TOKEN')]; }
+  }
   if (!url || !token) throw new ErroApi(503, 'Banco não configurado: conecte um Redis (Upstash) ao projeto na Vercel.');
   return { url: url.replace(/\/+$/, ''), token };
 }
