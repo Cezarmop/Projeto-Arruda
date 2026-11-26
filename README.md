@@ -25,7 +25,8 @@ estoque-xml.js    gera e lê os XMLs dos contratos (estoque v2, recebimento-v1, 
                   confirmacao-recebimento-v1, consulta/resposta de disponibilidade)
 api/_nucleo.js    banco, chaves, filas e caixa de entrada, comum à API REST e ao SOAP
 api/v1.js         API REST do Compras (Vercel Function, Node, sem dependências)
-api/soap.js       webservice SOAP 1.1 do Compras, com WSDL
+api/soap-v1.js    webservice SOAP no padrão da turma (/api/soap/v1/compras)
+api/soap.js       webservice SOAP anterior (/api/soap), documentos XML no Body
 soap/             página do webservice SOAP: WSDL, operações, exemplos e testador
 contratos/        XSD e exemplo de cada mensagem + página de documentação
 vercel.json       rotas /api/v1/* e cabeçalhos dos XSD
@@ -55,18 +56,21 @@ vercel.json       rotas /api/v1/* e cabeçalhos dos XSD
 | `POST /mensagens` | estoque, financeiro | qualquer um dos XMLs acima |
 
 Respostas: `202` recebida, `200` duplicada, `401` chave inválida, `403` rota de outro setor, `422` fora do contrato.
-**Webservice SOAP** ([documentação e testador](https://compras.cezbyte.com.br/soap/)) (SOAP 1.1, document/literal) em `https://compras.cezbyte.com.br/api/soap`, WSDL em [`/api/soap?wsdl`](https://compras.cezbyte.com.br/api/soap?wsdl), com as mesmas chaves e as mesmas filas da API REST:
+**Webservice SOAP** ([documentação e testador](https://compras.cezbyte.com.br/soap/)) no padrão de interoperabilidade da turma (o mesmo do VendasWebService): `https://compras.cezbyte.com.br/api/soap/v1/compras`, WSDL em [`?wsdl`](https://compras.cezbyte.com.br/api/soap/v1/compras?wsdl), namespace `urn:interoperabilidade:compras:soap:v1`, SOAPAction `urn:interoperabilidade:compras:soap:v1#<Operação>`. Parâmetros simples; toda resposta é `<Operação>Response` com `codigo`, `mensagem` e `dadosJson`. Mesmas chaves e filas da API REST.
 
-| Operação | Quem | Corpo |
+| Operação | Quem | Parâmetros |
 |---|---|---|
-| `ListarRecebimentos`, `ListarPrevisoesEntrega`, `ListarConsultasDisponibilidade` | estoque | `<cs:listar...><cs:desde>0</cs:desde></cs:listar...>` |
-| `ConfirmarRecebimento` | estoque | `<confirmacaoRecebimento>` direto no Body |
-| `ResponderDisponibilidade`, `EnviarSaldo` | estoque | o XML dentro de `<cs:responderDisponibilidade>` / `<cs:enviarSaldo>` |
-| `EnviarAvisoPagamento`, `EnviarRespostaPendencias` | financeiro | o XML dentro do invólucro da operação |
-| `EnviarSolicitacaoCompra`, `ListarRespostasSolicitacao` | estoque | `<solicitacaoCompra>` direto no Body / listagem das respostas |
-| `EnviarMensagem` | estoque, financeiro | qualquer XML acima |
+| `ConsultarSaude` | livre | nenhum |
+| `ConsultarPedido`, `ConsultarStatusPedido` | estoque, financeiro | `idPedido` |
+| `ListarRecebimentos`, `ListarPrevisoesEntrega`, `ListarConsultasDisponibilidade`, `ListarRespostasSolicitacao` | estoque | `desde`, `limite` |
+| `EnviarSolicitacaoCompra` | estoque | `idSolicitacao`, `sku`, `produto`, `quantidade`, `motivo` (+ opcionais) |
+| `ConsultarSolicitacao` | estoque | `idSolicitacao` |
+| `ConfirmarRecebimento` | estoque | `referencia`, `status` (+ divergência) |
+| `ResponderDisponibilidade` | estoque | `idConsulta`, `produtoCodigo`, `nome` e `quantidadeDisponivel`, ou `erro` |
+| `EnviarAvisoPagamento` | financeiro | `idAviso`, `referencia`, `situacao`, `valor` |
+| `EnviarMensagem` | estoque, financeiro | `xml` |
 
-`cs` = `urn:compras:servico:1.0` ([servico-compras-v1.xsd](contratos/servico-compras-v1.xsd)). SOAPAction `urn:compras:servico:1.0#<Operação>` (opcional: sem ela a operação vem do corpo). Envios respondem `<cs:confirmacaoEnvio>` com `RECEBIDA` ou `DUPLICADA`; erros vêm em `soap:Fault` com HTTP 401, 403 ou 500.
+`codigo`: 200 ok, 202 recebida, 400 parâmetro inválido, 401 sem chave, 403 setor sem permissão, 404 não encontrado, 422 fora do contrato. A versão anterior, com documentos XML inteiros no Body, continua em `/api/soap`.
 
 Os serviços estão publicados no [registro do Finanweb](https://finanwebsistema.vercel.app/registro) como versão 2.0.
 

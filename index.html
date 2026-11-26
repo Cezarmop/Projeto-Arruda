@@ -2779,7 +2779,7 @@ $('#xml-baixar').onclick = () => hxAtual && baixar(nomeHist(hxAtual), prettyXml(
    API DO COMPRAS (/api/v1 neste mesmo site): chaves, registro, contratos, publicações e caixa de entrada
    ========================================================================== */
 const API_BASE = location.protocol.startsWith('http') ? location.origin + '/api/v1' : 'https://compras.cezbyte.com.br/api/v1';
-const SOAP_URL = API_BASE.replace(/\/v1$/, '/soap');
+const SOAP_URL = API_BASE.replace(/\/v1$/, '/soap/v1/compras');   // padrão de interoperabilidade da turma (o /api/soap anterior continua)
 function apiC(){ const a = S.apiC = S.apiC || {}; a.admin = a.admin || ''; a.cursor = a.cursor || 0; return a; }
 let apiSaude = null, apiChaves = [], apAba = 'chaves';
 async function chamarApi(caminho, metodo = 'GET', corpo, semAuth){
@@ -2894,17 +2894,19 @@ const SERVICOS = [
   ['Solicitação de compra', 'REST', 'POST', '/solicitacoes-compra', 'solicitacao-compra-v1.xsd', 'estoque', 'O Estoque pede uma compra; aparece em Solicitações no Compras.'],
   ['Resposta da solicitação', 'REST', 'GET', '/respostas-solicitacao?desde=<seq>', 'resposta-solicitacao-v1.xsd', 'estoque', 'ATENDIDA com o número do pedido, ou RECUSADA com o motivo.'],
   ['Mensagens (qualquer tipo)', 'REST', 'POST', '/mensagens', 'qualquer um acima', 'estoque, financeiro', 'O tipo é descoberto pela raiz e pelo namespace do XML.'],
-  ['Recebimento', 'SOAP', 'ListarRecebimentos', '', 'WSDL', 'estoque', 'Mesma fila da API REST. Body: <cs:listarRecebimentos><cs:desde>0</cs:desde></cs:listarRecebimentos>.'],
-  ['Previsão de entrega', 'SOAP', 'ListarPrevisoesEntrega', '', 'WSDL', 'estoque', 'Mesma fila da API REST.'],
-  ['Consulta de disponibilidade', 'SOAP', 'ListarConsultasDisponibilidade', '', 'WSDL', 'estoque', 'Mesma fila da API REST.'],
-  ['Confirmação de recebimento', 'SOAP', 'ConfirmarRecebimento', '', 'confirmacao-recebimento-v1.xsd', 'estoque', 'O <confirmacaoRecebimento> vai direto no soap:Body.'],
-  ['Resposta de disponibilidade', 'SOAP', 'ResponderDisponibilidade', '', 'disponibilidade-estoque.xsd', 'estoque', 'Dentro de <cs:responderDisponibilidade>.'],
-  ['Saldo do estoque', 'SOAP', 'EnviarSaldo', '', 'estoque.xsd (v2)', 'estoque', 'Opcional. Dentro de <cs:enviarSaldo>.'],
-  ['Aviso de pagamento', 'SOAP', 'EnviarAvisoPagamento', '', 'aviso-pagamento-v1', 'financeiro', 'Opcional. Dentro de <cs:enviarAvisoPagamento>.'],
-  ['Resposta de pendências', 'SOAP', 'EnviarRespostaPendencias', '', 'pendencias-fornecedor-v1', 'financeiro', 'Opcional. Dentro de <cs:enviarRespostaPendencias>.'],
-  ['Solicitação de compra', 'SOAP', 'EnviarSolicitacaoCompra', '', 'solicitacao-compra-v1.xsd', 'estoque', 'A solicitacaoCompra direto no soap:Body.'],
-  ['Resposta da solicitação', 'SOAP', 'ListarRespostasSolicitacao', '', 'WSDL', 'estoque', 'Mesma fila da API REST.'],
-  ['Mensagens (qualquer tipo)', 'SOAP', 'EnviarMensagem', '', 'qualquer um acima', 'estoque, financeiro', 'Dentro de <cs:enviarMensagem>; o tipo é descoberto pelo XML.'],
+  ['Saúde do serviço', 'SOAP', 'ConsultarSaude', '', 'WSDL', 'todos', 'Livre, sem chave.'],
+  ['Pedido', 'SOAP', 'ConsultarPedido', '', 'WSDL', 'estoque, financeiro', 'idPedido; devolve o pedido com itens e situação em dadosJson.'],
+  ['Status do pedido', 'SOAP', 'ConsultarStatusPedido', '', 'WSDL', 'estoque, financeiro', 'idPedido; situação financeira e logística, quantidades.'],
+  ['Recebimento', 'SOAP', 'ListarRecebimentos', '', 'WSDL', 'estoque', 'desde, limite; mesma fila da API REST.'],
+  ['Previsão de entrega', 'SOAP', 'ListarPrevisoesEntrega', '', 'WSDL', 'estoque', 'desde, limite.'],
+  ['Consulta de disponibilidade', 'SOAP', 'ListarConsultasDisponibilidade', '', 'WSDL', 'estoque', 'desde, limite.'],
+  ['Confirmação de recebimento', 'SOAP', 'ConfirmarRecebimento', '', 'confirmacao-recebimento-v1.xsd', 'estoque', 'referencia, status e, se DIVERGENTE, sku e quantidades.'],
+  ['Resposta de disponibilidade', 'SOAP', 'ResponderDisponibilidade', '', 'disponibilidade-estoque.xsd', 'estoque', 'idConsulta, produtoCodigo, nome e quantidadeDisponivel, ou erro.'],
+  ['Solicitação de compra', 'SOAP', 'EnviarSolicitacaoCompra', '', 'solicitacao-compra-v1.xsd', 'estoque', 'idSolicitacao, sku, produto, quantidade, motivo.'],
+  ['Situação da solicitação', 'SOAP', 'ConsultarSolicitacao', '', 'WSDL', 'estoque', 'idSolicitacao; aguardando, atendida (com o pedido) ou recusada.'],
+  ['Resposta da solicitação', 'SOAP', 'ListarRespostasSolicitacao', '', 'resposta-solicitacao-v1.xsd', 'estoque', 'desde, limite.'],
+  ['Aviso de pagamento', 'SOAP', 'EnviarAvisoPagamento', '', 'aviso-pagamento-v1', 'financeiro', 'idAviso, referencia, situacao, valor.'],
+  ['Mensagens (qualquer tipo)', 'SOAP', 'EnviarMensagem', '', 'qualquer um acima', 'estoque, financeiro', 'xml com o documento de um contrato.'],
   ['Recebimento, previsão, consulta', 'SOCKET', 'arquivo .xml', '#compras', 'mesmos XSDs', 'estoque', 'Pelo servidor da turma, em privado para o ID do setor.'],
 ];
 const CONSOME = [
@@ -2929,22 +2931,28 @@ const CONTRATOS_TELA = [
   ['servico-compras-v1 (SOAP)', 'urn:compras:servico:1.0 · cabeçalho controle, listagens e invólucros', 'Estoque, Financeiro → Compras', 'contratos/servico-compras-v1.xsd', SOAP_URL + '?wsdl', 'WSDL'],
 ];
 const exemploSoap = () => [
-  '<!-- POST ' + SOAP_URL + '',
+  '<!-- POST ' + SOAP_URL,
   '     Authorization: Bearer <CHAVE_DO_ESTOQUE>',
   '     Content-Type: text/xml; charset=utf-8',
-  '     SOAPAction: "urn:compras:servico:1.0#ListarRecebimentos" -->',
-  '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:cs="urn:compras:servico:1.0">',
-  '  <soap:Header><cs:controle><cs:idMensagem>estoque-0001</cs:idMensagem></cs:controle></soap:Header>',
+  '     SOAPAction: "urn:interoperabilidade:compras:soap:v1#EnviarSolicitacaoCompra" -->',
+  '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="urn:interoperabilidade:compras:soap:v1">',
   '  <soap:Body>',
-  '    <cs:listarRecebimentos><cs:desde>0</cs:desde><cs:limite>50</cs:limite></cs:listarRecebimentos>',
+  '    <tns:EnviarSolicitacaoCompra>',
+  '      <tns:idSolicitacao>SOL-EST-0001</tns:idSolicitacao>',
+  '      <tns:sku>MOUSE-01</tns:sku>',
+  '      <tns:produto>Mouse sem fio</tns:produto>',
+  '      <tns:quantidade>30</tns:quantidade>',
+  '      <tns:motivo>ESTOQUE_MINIMO</tns:motivo>',
+  '    </tns:EnviarSolicitacaoCompra>',
   '  </soap:Body>',
   '</soap:Envelope>',
   '',
-  '<!-- Resposta: <cs:publicacoes tipo="recebimento" desde="0" ultimo="N"> com um <cs:publicacao seq=".."> por XML.',
-  '     Para confirmar, use SOAPAction ...#ConfirmarRecebimento e coloque o <confirmacaoRecebimento> direto no soap:Body.',
-  '     Envios respondem <cs:confirmacaoEnvio> (situacao RECEBIDA ou DUPLICADA); erros vêm em soap:Fault',
-  '     com HTTP 401 (sem chave), 403 (setor sem permissão) ou 500 (recusado, motivo em faultstring). -->'
+  '<!-- Resposta: <tns:EnviarSolicitacaoCompraResponse> com codigo (202 recebida, 200 já recebida,',
+  '     400 parâmetro inválido, 401 sem chave, 403 setor sem permissão), mensagem e dadosJson.',
+  '     Listagens (ListarRecebimentos, ListarRespostasSolicitacao...) recebem desde e limite e devolvem',
+  '     em dadosJson { tipo, desde, ultimo, itens: [{ seq, referencia, publicadoEm, xml }] }. -->'
 ].join('\n');
+
 const exemploEstoque = () => [
   '# 1. Buscar o que o Compras publicou (guarde o "ultimo" e use como ?desde= na próxima vez)',
   'curl -H "Authorization: Bearer <CHAVE_DO_ESTOQUE>" "' + API_BASE + '/recebimentos?desde=0"',
