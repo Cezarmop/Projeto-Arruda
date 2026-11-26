@@ -29,3 +29,14 @@ Pendências e avisos são buscados automaticamente: ao abrir o site, ao entrar n
 
 As chaves (Estoque e Financeiro) são informadas em Integrações e ficam só no navegador; nunca vão para o repositório.
 Referências que já existem no Financeiro vindas de outro sistema Compras não são reusadas: pedidos locais ainda não enviados são renumerados.
+
+## API do Compras (para os outros sistemas)
+Base: `https://compras.cezbyte.com.br/api/v1` · `Authorization: Bearer <chave do setor>` · `GET /api/v1` lista as rotas.
+Mesmas rotas da API PHP (`public_html/compras/api`): o Estoque busca `recebimentos`, `previsoes-entrega` e
+`consultas-disponibilidade` (`?desde=<seq>`) e responde em `POST /mensagens`; o Financeiro pode enviar avisos e pendências.
+
+- Função da Vercel em `api/v1.js` (Node, sem dependências) e banco Redis (Upstash) conectado ao projeto
+  (`KV_REST_API_URL`/`KV_REST_API_TOKEN`).
+- Tela **API e contratos**: ativação (chave de administrador, criada uma vez), chaves por setor (geradas na tela,
+  mostradas uma única vez e guardadas só como hash), registro de serviços, contratos XSD e log de acessos.
+- O app publica automaticamente recebimentos, previsões e consultas, e lê a caixa de entrada a cada minuto.

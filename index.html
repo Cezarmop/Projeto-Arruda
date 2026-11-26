@@ -172,6 +172,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
   <button class="nav" data-view="financeiro">Financeiro</button>
   <button class="nav" data-view="fornecedores">Fornecedores</button>
   <button class="nav" data-view="integracoes">Integrações</button>
+  <button class="nav" data-view="api">API e contratos <span class="n" id="n-api" hidden></span></button>
   <button class="nav" data-view="atividade">Atividade</button>
   <div class="side-foot">
     <span class="st" id="pill-sock">Socket desconectado</span>
@@ -424,6 +425,82 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
   </div>
 </section>
 
+<!-- ============ API E CONTRATOS ============ -->
+<section id="v-api" hidden>
+  <div class="head">
+    <div><h1>API e contratos</h1><div class="sub">O que os outros sistemas usam para integrar com o Compras: chaves, serviços e contratos.</div></div>
+    <div class="row"><span class="st" id="api-status">Verificando…</span></div>
+  </div>
+  <div class="card" style="margin-bottom:14px"><div class="sec" style="gap:8px">
+    <div class="row"><span class="mut sm" style="width:130px">Base da API</span><code class="mono grow" id="api-base"></code><button class="btn sm" data-copiar="#api-base">Copiar</button></div>
+    <div class="row"><span class="mut sm" style="width:130px">Autenticação</span><code class="mono grow">Authorization: Bearer &lt;chave do setor&gt;</code></div>
+    <div class="row"><span class="mut sm" style="width:130px">Socket</span><code class="mono grow">#compras @ electronicsystems.com.br:5000</code></div>
+  </div></div>
+  <div class="tabs" id="ap-tabs">
+    <button class="tab on" data-aba="chaves">Chaves de API<span class="n" id="c-chaves"></span></button>
+    <button class="tab" data-aba="registro">Registro de serviços</button>
+    <button class="tab" data-aba="contratos">Contratos</button>
+    <button class="tab" data-aba="acessos">Acessos</button>
+  </div>
+
+  <div id="ap-chaves">
+    <div class="card" id="ap-setup" hidden><div class="sec">
+      <h3>Ativar a API</h3>
+      <div class="mut" id="ap-setup-txt"></div>
+      <div class="row" id="ap-setup-criar"><button class="btn pri" id="ap-criar-admin">Criar chave de administrador</button><span class="hint">Feito uma única vez. A chave fica neste navegador e dá acesso à gestão das chaves.</span></div>
+      <div class="row" id="ap-setup-colar" hidden><input id="ap-admin" type="password" autocomplete="off" placeholder="Chave de administrador" style="width:360px"><button class="btn pri" id="ap-admin-salvar">Usar esta chave</button></div>
+    </div></div>
+    <div class="card" id="ap-gestao" hidden>
+      <div class="bar">
+        <select id="ap-setor"><option value="estoque">estoque</option><option value="financeiro">financeiro</option><option value="vendas">vendas</option><option value="patrimonio">patrimonio</option><option value="rh">rh</option><option value="outro">outro…</option></select>
+        <input id="ap-setor-outro" placeholder="nome-do-setor" style="width:150px" hidden>
+        <input id="ap-nome" placeholder="Descrição (ex.: equipe do Estoque)" style="width:260px">
+        <button class="btn pri" id="ap-gerar">Gerar chave</button>
+        <span class="grow"></span><span class="mut sm" id="ap-meta"></span>
+      </div>
+      <div class="note">Cada setor recebe a sua chave e só acessa as rotas do seu papel (ex.: o Estoque lê recebimentos e envia confirmações). A chave aparece uma única vez; entregue por canal privado. Revogar desliga na hora.</div>
+      <div class="scroll"><table>
+        <thead><tr><th>Setor</th><th>Descrição</th><th>Chave</th><th>Criada em</th><th>Último uso</th><th></th></tr></thead>
+        <tbody id="tb-chaves"></tbody>
+      </table></div>
+      <div class="empty" id="em-chaves" hidden><b>Nenhuma chave de setor</b>Gere uma chave para cada sistema que vai integrar.</div>
+    </div>
+  </div>
+
+  <div class="card" id="ap-registro" hidden>
+    <div class="note">Serviços que o Compras oferece (no mesmo modelo do <a href="https://finanwebsistema.vercel.app/registro" target="_blank" rel="noopener">registro do Finanweb</a>). Endpoints relativos à base da API. <a href="#" id="ap-baixar-registro">Baixar servicos.json</a></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Serviço</th><th>Protocolo</th><th>Operação</th><th>Endpoint</th><th>Contrato</th><th>Quem usa</th></tr></thead>
+      <tbody id="tb-registro"></tbody>
+    </table></div>
+    <div class="note" style="border-top:1px solid var(--line);border-bottom:0"><b>Serviços que o Compras consome</b></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Serviço</th><th>Setor</th><th>Operação</th><th>Endpoint</th></tr></thead>
+      <tbody id="tb-consome"></tbody>
+    </table></div>
+    <div class="note" style="border-top:1px solid var(--line);border-bottom:0"><b>Exemplo para o Estoque</b>
+      <pre class="xml" id="ap-exemplo" style="margin-top:8px;max-height:none"></pre>
+    </div>
+  </div>
+
+  <div class="card" id="ap-contratos" hidden>
+    <div class="note">Contratos XML (XSD) das mensagens trocadas com o Compras, com um exemplo de cada. Os do Financeiro e do Estoque são definidos por eles.</div>
+    <div class="scroll"><table>
+      <thead><tr><th>Contrato</th><th>Namespace / raiz</th><th>Direção</th><th>Arquivos</th></tr></thead>
+      <tbody id="tb-contratos"></tbody>
+    </table></div>
+  </div>
+
+  <div class="card" id="ap-acessos" hidden>
+    <div class="bar"><span class="mut sm">Últimas chamadas feitas com chave</span><span class="grow"></span><button class="btn sm" id="ap-acessos-atualizar">Atualizar</button></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Data</th><th>Setor</th><th>Método</th><th>Rota</th><th>Status</th></tr></thead>
+      <tbody id="tb-acessos"></tbody>
+    </table></div>
+    <div class="empty" id="em-acessos" hidden>Nenhum acesso registrado.</div>
+  </div>
+</section>
+
 <!-- ============ ATIVIDADE ============ -->
 <section id="v-atividade" hidden>
   <div class="head"><div><h1>Atividade</h1><div class="sub">Histórico de XML e trilha de auditoria.</div></div></div>
@@ -519,6 +596,16 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
     <div class="hint" id="env-hint"></div>
   </div>
   <div class="df"><span></span><div class="row"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="env-ok">Enviar</button></div></div>
+</dialog>
+
+<dialog id="dlg-chave">
+  <div class="dh"><h2 id="ck-titulo">Chave gerada</h2><button class="x" data-close aria-label="Fechar">×</button></div>
+  <div class="db">
+    <div class="mut" id="ck-txt"></div>
+    <div class="row"><code class="mono grow" id="ck-valor" style="padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);word-break:break-all"></code></div>
+    <div class="hint">Esta é a única vez que a chave aparece. Copie agora e entregue por canal privado (nunca no grupo da turma).</div>
+  </div>
+  <div class="df"><span></span><div class="row"><button class="btn" id="ck-copiar-tudo">Copiar instruções</button><button class="btn pri" id="ck-copiar">Copiar chave</button></div></div>
 </dialog>
 
 <dialog id="dlg-xml" class="lg">
@@ -686,9 +773,9 @@ function recalcUsos(){
 function docForn(nome){ const f = acharForn(nome), d = soDigitos(f && f.cnpj); return docValido(d) ? d : undefined; }
 
 /* ---------- navegação ---------- */
-const VIEWS = ['pedidos', 'recebimentos', 'estoque', 'financeiro', 'fornecedores', 'integracoes', 'atividade'];
+const VIEWS = ['pedidos', 'recebimentos', 'estoque', 'financeiro', 'fornecedores', 'integracoes', 'api', 'atividade'];
 const RENDER = { pedidos: renderPedidos, recebimentos: renderReceb, estoque: renderEstoque, financeiro: renderFin,
-  fornecedores: renderForn, integracoes: renderIntegracoes, atividade: renderAtividade };
+  fornecedores: renderForn, integracoes: renderIntegracoes, api: renderApi, atividade: renderAtividade };
 function ir(v){
   if (!VIEWS.includes(v)) v = 'pedidos';
   $$('.nav').forEach(b => b.classList.toggle('on', b.dataset.view === v));
@@ -984,6 +1071,7 @@ function registraEntrada(p, it, delta, restoAntes){
   s.entradas.unshift({ id, externalId: 'REC-' + id, pedido: p.num, recebidoEm: new Date().toISOString(), fornecedor: p.fornecedor,
     sku: skuEst(it.sku, it.nome), nome: it.nome, quantidade: delta, quantidadePedida: restoAntes, preco: it.preco,
     tipo: p.recebido ? 'TOTAL' : 'PARCIAL', enviado: null, statusEstoque: null, divergencias: [], mensagemEstoque: '' });
+  publicarRecebimento(s.entradas[0]);
 }
 function renderEstoque(){
   const s = est(), prods = s.saldo ? s.saldo.produtos : [];
@@ -1160,11 +1248,13 @@ $('#env-ok').onclick = async () => {
       lista = $('#env-escopo').value === 'todas' ? s.entradas.slice() : s.entradas.filter(x => !x.enviado);
       if (!lista.length) return toast('Nenhuma entrada para enviar.', 'erro');
       lista.reverse(); xml = xmlEntradas(lista, formato);
+      if (formato === 'v1') publicarApi('recebimento', xml);
       rotulo = lista.length + ' entrada(s) (' + (formato === 'v2' ? 'estoque v2' : 'recebimento-v1') + ')';
       nome = (formato === 'v2' ? 'estoque-entradas-v2_' : 'recebimento-v1_') + hoje() + '.xml';
     } else {
       const r = xmlPrevisoes(); if (!r) return toast('Nenhum pedido em aberto.', 'erro');
       xml = r.xml; rotulo = r.qtd + ' previsão(ões)'; nome = 'previsao-entrega-v1_' + hoje() + '.xml';
+      publicarApi('previsao-entrega', xml);
     }
   } catch (err) {
     log('Estoque: XML não gerado: ' + err.message.replace(/\n/g, ' '));
@@ -1221,6 +1311,7 @@ function novaConsulta(via){
   let xml;
   try { xml = EX.gerarConsultaDisponibilidade(raw, id); } catch (e) { toast('Código inválido: use letras, dígitos e hífen (ex.: MONITOR-001).', 'erro'); return null; }
   s.consultaSeq++;
+  publicarApi('consulta-disponibilidade', xml, id);
   return { id, sku: EX.normalizarSku(raw), criadaEm: new Date().toISOString(), via, xml, resposta: null };
 }
 $('#dc-socket').onclick = async () => {
@@ -1996,6 +2087,220 @@ $('#xml-copiar').onclick = async () => { try { await navigator.clipboard.writeTe
 $('#xml-baixar').onclick = () => hxAtual && baixar(nomeHist(hxAtual), prettyXml(hxAtual.xml));
 
 /* =============================================================================
+   API DO COMPRAS (/api/v1 neste mesmo site): chaves, registro, contratos, publicações e caixa de entrada
+   ========================================================================== */
+const API_BASE = location.protocol.startsWith('http') ? location.origin + '/api/v1' : 'https://compras.cezbyte.com.br/api/v1';
+function apiC(){ const a = S.apiC = S.apiC || {}; a.admin = a.admin || ''; a.cursor = a.cursor || 0; return a; }
+let apiSaude = null, apiChaves = [], apAba = 'chaves';
+async function chamarApi(caminho, metodo = 'GET', corpo, semAuth){
+  const h = { Accept: 'application/json' };
+  if (!semAuth && apiC().admin) h.Authorization = 'Bearer ' + apiC().admin;
+  if (corpo !== undefined) h['Content-Type'] = 'application/json';
+  const r = await fetch(API_BASE + caminho, { method: metodo, headers: h, body: corpo !== undefined ? JSON.stringify(corpo) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && !semAuth) throw new Error('chave de administrador inválida');
+  if (r.status >= 400) throw new Error(j.erro || 'HTTP ' + r.status);
+  return j;
+}
+async function verificarApi(){
+  try { apiSaude = await chamarApi('/saude', 'GET', undefined, true); }
+  catch (e) { apiSaude = { ok: false, banco: e.message }; }
+  return apiSaude;
+}
+// Compras -> Estoque: deixa o XML publicado para o Estoque buscar (GET /api/v1/<tipo>?desde=seq)
+async function publicarApi(tipo, xml, referencia){
+  if (!apiC().admin) return false;
+  try {
+    const j = await chamarApi('/publicacoes', 'POST', { tipo, xml, referencia });
+    if (!j.duplicada) log('API do Compras: ' + tipo + (referencia ? ' ' + referencia : '') + ' publicado (seq ' + j.seq + ') para o Estoque buscar.');
+    return true;
+  } catch (e) { log('API do Compras: falha ao publicar ' + tipo + ': ' + e.message); return false; }
+}
+// publica o recebimento-v1 de uma entrada assim que ela acontece (se a empresa estiver preenchida)
+function publicarRecebimento(x){
+  const c = S.config;
+  if (!apiC().admin || !EX || !c.empresa || !/^\d{14}$/.test(c.cnpj || '') || !c.usuario) return;
+  try { publicarApi('recebimento', xmlEntradas([x], 'v1'), x.externalId); }
+  catch (e) { log('API do Compras: recebimento ' + x.externalId + ' não publicado: ' + ((e.erros && e.erros[0]) || e.message)); }
+}
+// Setores -> Compras: lê a caixa de entrada e aplica cada mensagem como se tivesse chegado por arquivo/socket
+let lendoCaixa = false, timerCaixa = null;
+async function lerCaixa(manual){
+  const a = apiC(); if (!a.admin || lendoCaixa) return;
+  lendoCaixa = true;
+  try {
+    let n = 0, j;
+    do {
+      j = await chamarApi('/caixa-entrada?desde=' + a.cursor);
+      for (const m of j.itens || []) {
+        try {
+          if (m.formato === 'json' && m.tipo === 'aviso-pagamento') {
+            const av = JSON.parse(m.conteudo);
+            if (aplicarAviso(av, 'api', x => { log('Aviso de pagamento (API do Compras) ignorado: ' + x); return false; })) regXml({ direcao: 'recebido', via: 'api', xml: m.conteudo, contratoId: 'aviso-pagamento' });
+          } else rotearXml(m.conteudo, 'api');
+        } catch (e) { log('API do Compras: mensagem ' + m.seq + ' (' + m.tipo + ', de ' + m.de + ') não aplicada: ' + e.message); }
+        a.cursor = Math.max(a.cursor, m.seq); n++;
+      }
+    } while ((j.itens || []).length === 100);
+    salvar();
+    if (n) log('API do Compras: ' + n + ' mensagem(ns) lida(s) da caixa de entrada.');
+    if (manual) toast(n ? n + ' mensagem(ns) recebida(s) pela API.' : 'Nenhuma mensagem nova na API.', 'ok');
+  } catch (e) { if (manual) toast('Caixa de entrada: ' + e.message, 'erro'); }
+  finally { lendoCaixa = false; }
+}
+function agendarCaixa(){
+  clearInterval(timerCaixa); timerCaixa = null;
+  if (!apiC().admin) return;
+  timerCaixa = setInterval(() => { if (!document.hidden) lerCaixa(false); }, 60000);
+}
+
+// --- tela ---
+const SERVICOS = [
+  ['Recebimento', 'REST', 'GET', '/recebimentos?desde=<seq>', 'recebimento-v1.xsd', 'estoque', 'Baixas de recebimento publicadas pelo Compras. GET /recebimentos/{seq} traz um XML.'],
+  ['Previsão de entrega', 'REST', 'GET', '/previsoes-entrega?desde=<seq>', 'previsao-entrega-v1.xsd', 'estoque', 'Pedidos em aberto com a data prevista.'],
+  ['Consulta de disponibilidade', 'REST', 'GET', '/consultas-disponibilidade?desde=<seq>', 'disponibilidade-estoque.xsd', 'estoque', 'Perguntas do Compras sobre a quantidade disponível.'],
+  ['Confirmação de recebimento', 'REST', 'POST', '/confirmacoes-recebimento', 'confirmacao-recebimento-v1.xsd', 'estoque', 'Resposta do Estoque ao recebimento.'],
+  ['Resposta de disponibilidade', 'REST', 'POST', '/respostas-disponibilidade', 'disponibilidade-estoque.xsd', 'estoque', 'Resposta à consulta, com o mesmo idConsulta.'],
+  ['Saldo do estoque', 'REST', 'POST', '/saldos-estoque', 'estoque.xsd (v2)', 'estoque', 'Opcional: o Compras também busca o saldo na API do Estoque.'],
+  ['Aviso de pagamento', 'REST', 'POST', '/avisos-pagamento', 'aviso-pagamento-v1 (XML ou JSON)', 'financeiro', 'Opcional: o Compras já busca os avisos no Finanweb.'],
+  ['Resposta de pendências', 'REST', 'POST', '/respostas-pendencias', 'pendencias-fornecedor-v1', 'financeiro', 'Opcional: o Compras consulta GET /pendencias do Finanweb.'],
+  ['Mensagens (qualquer tipo)', 'REST', 'POST', '/mensagens', 'qualquer um acima', 'estoque, financeiro', 'O tipo é descoberto pela raiz e pelo namespace do XML.'],
+  ['Recebimento, previsão, consulta', 'SOCKET', 'arquivo .xml', '#compras', 'mesmos XSDs', 'estoque', 'Pelo servidor da turma, em privado para o ID do setor.'],
+];
+const CONSOME = [
+  ['Compra (conta a pagar)', 'financeiro', 'POST', 'https://finanwebsistema.vercel.app/api/v1/compras'],
+  ['Pendências com fornecedor', 'financeiro', 'GET', 'https://finanwebsistema.vercel.app/api/v1/pendencias?origem=compras'],
+  ['Aviso de pagamento', 'financeiro', 'GET', 'https://finanwebsistema.vercel.app/api/v1/avisos-pagamento?origem=compras'],
+  ['Saldo e entrada no estoque', 'estoque', 'GET / POST', 'https://sistema-de-estoque-cyan.vercel.app/api/xml'],
+];
+const CONTRATOS_TELA = [
+  ['recebimento-v1', 'urn:compras:recebimento:1.0 · <movimento tipo="RECEBIMENTO">', 'Compras → Estoque', 'contratos/recebimento-v1.xsd', 'contratos/recebimento-v1.xml'],
+  ['previsao-entrega-v1', 'urn:compras:previsao-entrega:1.0 · <movimento tipo="PREVISAO_ENTREGA">', 'Compras → Estoque', 'contratos/previsao-entrega-v1.xsd', 'contratos/previsao-entrega-v1.xml'],
+  ['confirmacao-recebimento-v1', 'urn:compras:confirmacao-recebimento:1.0 · <confirmacaoRecebimento>', 'Estoque → Compras', 'contratos/confirmacao-recebimento-v1.xsd', 'contratos/confirmacao-recebimento-v1.xml'],
+  ['consultaDisponibilidade', 'sem namespace · <consultaDisponibilidade>', 'Compras → Estoque', 'contratos/disponibilidade-estoque.xsd', 'contratos/consulta-disponibilidade.xml'],
+  ['respostaDisponibilidade', 'sem namespace · <respostaDisponibilidade>', 'Estoque → Compras', 'contratos/disponibilidade-estoque.xsd', 'contratos/resposta-disponibilidade.xml'],
+  ['estoque v2', 'sem namespace · <estoque versao="2">', 'Estoque ↔ Compras', API_PADRAO + '/xml/estoque.xsd', ''],
+  ['saida-v2', NS_SAIDA + ' · <movimento tipo="SAIDA">', 'Compras → Financeiro', FIN_XSD + 'saida-v2.xsd', ''],
+  ['pendencias-fornecedor-v1', NS_PEND, 'Compras ↔ Financeiro', FIN_XSD + 'pendencias-fornecedor-v1.xsd', ''],
+  ['aviso-pagamento-v1', NS_AVISO, 'Financeiro → Compras', FIN_XSD + 'aviso-pagamento-v1.xsd', ''],
+];
+const exemploEstoque = () => [
+  '# 1. Buscar o que o Compras publicou (guarde o "ultimo" e use como ?desde= na próxima vez)',
+  'curl -H "Authorization: Bearer <CHAVE_DO_ESTOQUE>" "' + API_BASE + '/recebimentos?desde=0"',
+  'curl -H "Authorization: Bearer <CHAVE_DO_ESTOQUE>" "' + API_BASE + '/previsoes-entrega?desde=0"',
+  'curl -H "Authorization: Bearer <CHAVE_DO_ESTOQUE>" "' + API_BASE + '/consultas-disponibilidade?desde=0"',
+  '',
+  '# 2. Responder (XML no corpo)',
+  'curl -X POST -H "Authorization: Bearer <CHAVE_DO_ESTOQUE>" -H "Content-Type: application/xml" \\',
+  '     --data-binary @confirmacao-recebimento-v1.xml "' + API_BASE + '/mensagens"',
+  '',
+  '# Respostas: 202 recebida, 200 duplicada, 401 sem chave, 403 setor sem permissão, 422 XML fora do contrato'
+].join('\n');
+
+async function renderApi(){
+  $('#api-base').textContent = API_BASE;
+  $$('#ap-tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.aba === apAba));
+  ['chaves', 'registro', 'contratos', 'acessos'].forEach(a => $('#ap-' + a).hidden = a !== apAba);
+  $('#tb-registro').innerHTML = SERVICOS.map(s => `<tr><td><b style="font-weight:550">${esc(s[0])}</b><div class="sm mut">${esc(s[6])}</div></td><td>${esc(s[1])}</td><td class="mono">${esc(s[2])}</td>
+    <td class="mono" style="word-break:break-all">${esc(s[3])}</td><td class="sm">${esc(s[4])}</td><td>${esc(s[5])}</td></tr>`).join('');
+  $('#tb-consome').innerHTML = CONSOME.map(s => `<tr><td>${esc(s[0])}</td><td>${esc(s[1])}</td><td class="mono">${esc(s[2])}</td><td class="mono sm" style="word-break:break-all">${esc(s[3])}</td></tr>`).join('');
+  $('#ap-exemplo').textContent = exemploEstoque();
+  $('#tb-contratos').innerHTML = CONTRATOS_TELA.map(c => `<tr><td><b style="font-weight:550">${esc(c[0])}</b></td><td class="mono sm" style="word-break:break-all">${esc(c[1])}</td><td>${esc(c[2])}</td>
+    <td><div class="acts" style="justify-content:flex-start"><a class="link" href="${esc(c[3])}" target="_blank" rel="noopener">XSD</a>${c[4] ? `<a class="link mut" href="${esc(c[4])}" target="_blank" rel="noopener">Exemplo</a>` : ''}</div></td></tr>`).join('');
+  const s = await verificarApi(), a = apiC();
+  const st = $('#api-status');
+  if (!s.ok) { st.className = 'st bad'; st.textContent = 'API fora do ar: ' + (s.banco || 'sem resposta'); }
+  else if (!s.adminConfigurado) { st.className = 'st warn'; st.textContent = 'API no ar, aguardando ativação'; }
+  else { st.className = 'st ok'; st.textContent = 'API no ar'; }
+  const precisaSetup = s.ok && (!s.adminConfigurado || !a.admin);
+  $('#ap-setup').hidden = !precisaSetup; $('#ap-gestao').hidden = !(s.ok && a.admin);
+  $('#ap-setup-criar').hidden = !!s.adminConfigurado; $('#ap-setup-colar').hidden = !s.adminConfigurado;
+  $('#ap-setup-txt').textContent = s.adminConfigurado
+    ? 'A API já foi ativada em outro navegador. Cole aqui a chave de administrador para gerenciar as chaves.'
+    : 'Crie a chave de administrador para começar a gerar as chaves dos outros setores.';
+  if (s.ok && a.admin && apAba === 'chaves') await carregarChaves();
+  if (s.ok && a.admin && apAba === 'acessos') await carregarAcessos();
+}
+async function carregarChaves(){
+  try { apiChaves = (await chamarApi('/chaves')).chaves || []; }
+  catch (e) { toast('Chaves: ' + e.message, 'erro'); apiChaves = []; }
+  $('#c-chaves').textContent = apiChaves.length || '';
+  $('#ap-meta').textContent = apiChaves.length ? apiChaves.length + ' chave(s) ativa(s)' : '';
+  $('#em-chaves').hidden = apiChaves.length > 0;
+  $('#tb-chaves').innerHTML = apiChaves.map(c => `<tr><td><b style="font-weight:550">${esc(c.setor)}</b></td><td>${esc(c.nome)}</td><td class="mono">${esc(c.prefixo)}••••••</td>
+    <td class="sm mut">${esc(fmtDataHora(c.criadaEm))}</td><td class="sm mut">${c.ultimoUso ? esc(fmtDataHora(c.ultimoUso)) : 'nunca'}</td>
+    <td><div class="acts"><button class="link bad" data-revogar="${esc(c.id)}">Revogar</button></div></td></tr>`).join('');
+}
+async function carregarAcessos(){
+  let l = [];
+  try { l = (await chamarApi('/acessos')).acessos || []; } catch (e) { toast('Acessos: ' + e.message, 'erro'); }
+  $('#em-acessos').hidden = l.length > 0;
+  $('#tb-acessos').innerHTML = l.map(x => `<tr><td class="sm mut">${esc(fmtDataHora(x.em))}</td><td>${esc(x.setor)}</td><td class="mono">${esc(x.metodo)}</td>
+    <td class="mono sm">${esc(x.rota)}</td><td>${st(x.status, x.status < 300 ? 'ok' : x.status < 500 ? 'warn' : 'bad')}</td></tr>`).join('');
+}
+$$('#ap-tabs .tab').forEach(b => b.onclick = () => { apAba = b.dataset.aba; renderApi(); });
+$('#ap-criar-admin').onclick = async () => {
+  try {
+    const j = await chamarApi('/admin/setup', 'POST', {}, true);
+    apiC().admin = j.chave; salvar(); agendarCaixa(); log('API do Compras ativada: chave de administrador criada e guardada neste navegador.');
+    mostrarChave('Chave de administrador', 'Guardada neste navegador. Copie e guarde num lugar seguro: é ela que permite gerenciar as chaves em outro computador.', j.chave, '');
+    renderApi();
+  } catch (e) { toast(e.message, 'erro'); renderApi(); }
+};
+$('#ap-admin-salvar').onclick = async () => {
+  const v = $('#ap-admin').value.trim(); if (!v) return;
+  apiC().admin = v;
+  try { await chamarApi('/chaves'); salvar(); agendarCaixa(); $('#ap-admin').value = ''; toast('Chave de administrador aceita.', 'ok'); renderApi(); }
+  catch (e) { apiC().admin = ''; toast(e.message, 'erro'); }
+};
+$('#ap-setor').onchange = e => { $('#ap-setor-outro').hidden = e.target.value !== 'outro'; };
+$('#ap-gerar').onclick = async () => {
+  const setor = $('#ap-setor').value === 'outro' ? $('#ap-setor-outro').value.trim().toLowerCase() : $('#ap-setor').value;
+  if (!/^[a-z][a-z0-9-]{1,29}$/.test(setor)) return toast('Setor inválido: letras minúsculas, dígitos e hífen.', 'erro');
+  try {
+    const j = await chamarApi('/chaves', 'POST', { setor, nome: $('#ap-nome').value.trim() || setor });
+    log('API do Compras: chave criada para o setor ' + setor + ' (' + j.prefixo + '…).');
+    $('#ap-nome').value = '';
+    mostrarChave('Chave do setor ' + setor, 'Entregue ao setor ' + setor + ' junto com a base da API e o link do registro.', j.chave, setor);
+    carregarChaves();
+  } catch (e) { toast(e.message, 'erro'); }
+};
+$('#tb-chaves').onclick = async e => {
+  const b = e.target.closest('[data-revogar]'); if (!b) return;
+  const c = apiChaves.find(x => x.id === b.dataset.revogar);
+  if (!confirm('Revogar a chave do setor ' + c.setor + ' (' + c.prefixo + '…)? O sistema dele perde o acesso na hora.')) return;
+  try { await chamarApi('/chaves/' + c.id, 'DELETE'); log('API do Compras: chave do setor ' + c.setor + ' (' + c.prefixo + '…) revogada.'); toast('Chave revogada.', 'ok'); carregarChaves(); }
+  catch (err) { toast(err.message, 'erro'); }
+};
+$('#ap-acessos-atualizar').onclick = () => carregarAcessos();
+$('#ap-baixar-registro').onclick = e => {
+  e.preventDefault();
+  const reg = { setor: 'compras', base: API_BASE, autenticacao: 'Authorization: Bearer <chave do setor>', socket: '#compras @ electronicsystems.com.br:5000',
+    servicos: SERVICOS.map(s => ({ nome: s[0], versao: '1.0', protocolo: s[1], operacao: s[2], endpoint: s[1] === 'REST' ? API_BASE + s[3] : s[3], contrato: s[4], consumidor: s[5], situacao: 'ATIVO', descricao: s[6] })),
+    consome: CONSOME.map(s => ({ nome: s[0], setor: s[1], operacao: s[2], endpoint: s[3] })) };
+  const blob = new Blob([JSON.stringify(reg, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'servicos.json' }); a.click();
+};
+let chaveMostrada = { valor: '', setor: '' };
+function mostrarChave(titulo, txt, valor, setor){
+  chaveMostrada = { valor, setor };
+  $('#ck-titulo').textContent = titulo; $('#ck-txt').textContent = txt; $('#ck-valor').textContent = valor;
+  $('#ck-copiar-tudo').hidden = !setor;
+  abrir('#dlg-chave');
+}
+const copiar = async t => { try { await navigator.clipboard.writeText(t); toast('Copiado.', 'ok'); } catch (e) { toast('Não consegui copiar: selecione o texto.', 'erro'); } };
+$('#ck-copiar').onclick = () => copiar(chaveMostrada.valor);
+$('#ck-copiar-tudo').onclick = () => copiar([
+  'Integração com o Compras (setor ' + chaveMostrada.setor + ')',
+  'Base da API: ' + API_BASE,
+  'Autenticação: Authorization: Bearer ' + chaveMostrada.valor,
+  'Rotas: GET ' + API_BASE + ' (lista completa)',
+  'Registro e contratos: ' + location.origin + '/#api',
+  'Contratos XSD: ' + location.origin + '/contratos/'
+].join('\n'));
+document.addEventListener('click', e => { const b = e.target.closest('[data-copiar]'); if (b) copiar($(b.dataset.copiar).textContent); });
+
+/* =============================================================================
    INÍCIO
    ========================================================================== */
 function exemplo(){
@@ -2023,6 +2328,7 @@ if (!EX) toast('estoque-xml.js não encontrado: a parte de Estoque precisa dele 
 sockConectar();
 if (est().autoSaldo !== false) { atualizarSaldoSilencioso(); agendarSaldo(); }
 if (fin().chave && fin().auto !== false) { sincronizarFin(false); agendarAvisos(); }
+if (apiC().admin) { lerCaixa(false); agendarCaixa(); }
 </script>
 </body>
 </html>

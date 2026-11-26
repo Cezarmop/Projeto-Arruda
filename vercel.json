@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/api/v1", "destination": "/api/v1" },
+    { "source": "/api/v1/:caminho*", "destination": "/api/v1?caminho=:caminho*" }
+  ],
+  "headers": [
+    { "source": "/contratos/(.*)\\.xsd", "headers": [{ "key": "Access-Control-Allow-Origin", "value": "*" }, { "key": "Content-Type", "value": "application/xml; charset=utf-8" }] }
+  ]
+}
