@@ -2276,7 +2276,7 @@ $('#ap-acessos-atualizar').onclick = () => carregarAcessos();
 $('#ap-baixar-registro').onclick = e => {
   e.preventDefault();
   const reg = { setor: 'compras', base: API_BASE, autenticacao: 'Authorization: Bearer <chave do setor>', socket: '#compras @ electronicsystems.com.br:5000',
-    servicos: SERVICOS.map(s => ({ nome: s[0], versao: '1.0', protocolo: s[1], operacao: s[2], endpoint: s[1] === 'REST' ? API_BASE + s[3] : s[3], contrato: s[4], consumidor: s[5], situacao: 'ATIVO', descricao: s[6] })),
+    servicos: SERVICOS.map(s => ({ nome: s[0], versao: '2.0', protocolo: s[1], operacao: s[2], endpoint: s[1] === 'REST' ? API_BASE + s[3] : s[3], contrato: s[4], consumidor: s[5], situacao: 'ATIVO', descricao: s[6] })),
     consome: CONSOME.map(s => ({ nome: s[0], setor: s[1], operacao: s[2], endpoint: s[3] })) };
   const blob = new Blob([JSON.stringify(reg, null, 2)], { type: 'application/json' });
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'servicos.json' }); a.click();
