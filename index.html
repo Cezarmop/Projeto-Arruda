@@ -320,12 +320,14 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
       <div class="menu">
         <button class="btn" data-menu>Contas a pagar ▾</button>
         <div class="menu-list" hidden>
+          <button id="fin-saida-api">Enviar pela API<small>POST /compras, cada pedido vira conta a pagar</small></button>
           <button id="fin-saida-sock">Enviar via socket<small>saida-v2 para o Financeiro</small></button>
           <button id="fin-saida">Baixar XML<small>saida-v2 com os pedidos como despesas</small></button>
         </div>
       </div>
       <button class="btn" id="fin-consulta">Consultar pendências</button>
-      <button class="btn pri" id="fin-resposta">Importar resposta</button>
+      <button class="btn" id="fin-avisos">Buscar avisos de pagamento</button>
+      <button class="btn" id="fin-resposta">Importar XML</button>
     </div>
   </div>
   <div class="card">
@@ -378,6 +380,19 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
       <div class="row"><span class="grow"></span><button class="btn sm" id="api-testar">Testar</button><button class="btn sm pri" id="api-salvar">Salvar</button></div>
     </div></div>
   </div>
+  <div class="card" style="margin-top:14px"><div class="sec">
+    <h3>API do Financeiro (Finanweb)</h3>
+    <div class="g2">
+      <label class="f">Endereço base<input id="fin-url" type="url" placeholder="https://finanwebsistema.vercel.app/api/v1"></label>
+      <label class="f">Chave do setor compras (Bearer)<input id="fin-chave" type="password" autocomplete="off" placeholder="Cole a chave fornecida pelo Financeiro"></label>
+    </div>
+    <div class="row">
+      <label class="row sm" style="gap:6px"><input type="checkbox" id="fin-auto"> Buscar avisos de pagamento automaticamente (a cada 5 min)</label>
+      <span class="grow"></span><span class="hint" id="fin-status"></span>
+      <button class="btn sm" id="fin-testar">Testar</button><button class="btn sm pri" id="fin-salvar">Salvar</button>
+    </div>
+    <div class="hint">POST /compras (contas a pagar), GET /pendencias e GET /avisos-pagamento. A chave fica só neste navegador. <a href="https://finanwebsistema.vercel.app/contratos" target="_blank" rel="noopener">Contratos</a></div>
+  </div></div>
   <div class="card" style="margin-top:14px">
     <div class="sec">
       <div class="row"><h3 class="grow">Socket (ponte-socket.js)</h3><span class="st" id="sock-status">Desconectado</span></div>
@@ -485,7 +500,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
     <label class="f">Fornecedor<select id="cons-forn"></select></label>
     <div class="hint">Só fornecedores com CPF/CNPJ. "Todos" pede as pendências de todos.</div>
   </div>
-  <div class="df"><span></span><div class="row"><button class="btn" id="cons-baixar">Baixar XML</button><button class="btn pri" id="cons-enviar">Enviar via socket</button></div></div>
+  <div class="df"><span></span><div class="row"><button class="btn" id="cons-baixar">Baixar XML</button><button class="btn" id="cons-enviar">Via socket</button><button class="btn pri" id="cons-api">Consultar pela API</button></div></div>
 </dialog>
 
 <dialog id="dlg-envio">
@@ -627,7 +642,11 @@ const totalQtd = p => p.itens.reduce((s, i) => s + i.qtd, 0);
 const recebido = p => p.log === 'Recebido' || p.recebido;
 const atrasado = p => !recebido(p) && isoOk(p.previsao) && p.previsao < hoje();
 const pedidosAbertos = () => S.pedidos.filter(p => !recebido(p));
-const proxNum = () => 'PC-' + (++S.seq);
+function proxNum(){
+  let n;
+  do n = 'PC-' + (++S.seq); while (S.pedidos.some(p => p.num === n) || (S.fin && (S.fin.externas || []).includes(n)));
+  return n;
+}
 const FIN_CLS = { Pendente: 'warn', Aprovado: 'info', Pago: 'ok' };
 const LOG_CLS = { Aguardando: '', 'Em trânsito': 'info', Parcial: 'warn', Recebido: 'ok' };
 function atualizaLogistica(p){
@@ -729,7 +748,7 @@ function renderPedidos(){
     <td class="r">${money(totalPedido(p))}</td>
     <td>${progresso(totalRecebido(p), totalQtd(p))}</td>
     <td>${entrega(p)}</td>
-    <td>${st(p.fin, FIN_CLS[p.fin])}${p.avisoFin === 'CANCELADO' ? '<div class="sm" style="color:var(--bad)">Cancelada no Financeiro</div>' : p.avisoFin === 'PAGO' ? '<div class="sm mut">Confirmado pelo Financeiro</div>' : ''}</td>
+    <td>${st(p.fin, FIN_CLS[p.fin])}${p.avisoFin === 'CANCELADO' ? '<div class="sm" style="color:var(--bad)">Cancelada no Financeiro</div>' : p.avisoFin === 'PAGO' ? '<div class="sm mut">Confirmado pelo Financeiro</div>' : p.enviadoFin ? '<div class="sm mut">Enviado ao Financeiro</div>' : ''}</td>
     <td>${st(p.log, LOG_CLS[p.log])}</td>
     <td><div class="acts"><button class="link" data-ed="${p.id}">Editar</button><button class="link bad" data-del="${p.id}">Excluir</button></div></td>
   </tr>`).join('');
@@ -1385,9 +1404,10 @@ lerArquivo($('#f-est'), t => aplicarXmlEstoque(t, 'arquivo'));
 function gerarSaida(){
   const c = S.config;
   if (!c.empresa || !/^\d{14}$/.test(c.cnpj || '') || !c.usuario) { empresaOk(); return null; }
-  const desp = [], pulados = [];
+  const desp = [], pulados = [], conflitos = [];
   S.pedidos.forEach(p => {
     const doc = docForn(p.fornecedor), nome = txt120(p.fornecedor);
+    if (refExterna(p.num) && !p.enviadoFin) { conflitos.push(p.num); return; }
     if (!nome || !doc) { pulados.push(p.num); return; }
     const emissao = isoOk(p.emissao) ? p.emissao : hoje();
     const venc = p.fin === 'Pago'
@@ -1395,8 +1415,13 @@ function gerarSaida(){
       : (isoOk(p.vencimento) ? p.vencimento : somaDias(emissao, 30));
     desp.push({ ref: p.num, status: p.fin === 'Pago' ? 'CONFIRMADO' : 'PENDENTE', nome, doc, cat: txt120(p.categoria) || 'Mercadorias', valor: totalPedido(p), pag: txt120(p.formaPag) || 'Boleto', emissao, venc });
   });
-  if (!desp.length) { toast('Nenhum pedido exportável: cadastre o CPF/CNPJ dos fornecedores.', 'erro'); return null; }
+  if (conflitos.length) log('Financeiro: ' + conflitos.join(', ') + ' fora do envio, a referência já existe no Financeiro vinda de outro sistema Compras.');
+  if (!desp.length) { toast(conflitos.length ? 'Nenhum pedido enviável: as referências já existem no Financeiro (veja os logs).' : 'Nenhum pedido exportável: cadastre o CPF/CNPJ dos fornecedores.', 'erro'); return null; }
   const tot = desp.reduce((s, d) => s + centavos(d.valor), 0);
+  const json = { cabecalho: { empresa: c.empresa, cnpj: c.cnpj, origem: ORIGEM, dataArquivo: hoje(), usuario: c.usuario },
+    despesas: desp.map(d => ({ referencia: d.ref, status: d.status, fornecedor: { nome: d.nome, documento: d.doc }, categoria: d.cat,
+      valor: dec2(d.valor), formaPagamento: d.pag, dataEmissao: d.emissao, vencimento: d.venc })),
+    totalizador: { qtdRegistros: desp.length, valorTotalGeral: (tot / 100).toFixed(2) } };
   const L = ['<?xml version="1.0" encoding="UTF-8"?>', '<movimento xmlns="' + NS_SAIDA + '" versao="2.0" tipo="SAIDA">', '  <cabecalho>',
     '    <empresa>' + xmlEsc(c.empresa) + '</empresa>', '    <cnpj>' + c.cnpj + '</cnpj>', '    <origem>' + ORIGEM + '</origem>',
     '    <dataArquivo>' + hoje() + '</dataArquivo>', '    <usuario>' + xmlEsc(c.usuario) + '</usuario>', '  </cabecalho>', '  <despesas>'];
@@ -1405,9 +1430,47 @@ function gerarSaida(){
     '      <valor>' + dec2(d.valor) + '</valor>', '      <formaPagamento>' + xmlEsc(d.pag) + '</formaPagamento>',
     '      <dataEmissao>' + d.emissao + '</dataEmissao>', '      <vencimento>' + d.venc + '</vencimento>', '    </despesa>'));
   L.push('  </despesas>', '  <totalizador>', '    <qtdRegistros>' + desp.length + '</qtdRegistros>', '    <valorTotalGeral>' + (tot / 100).toFixed(2) + '</valorTotalGeral>', '  </totalizador>', '</movimento>');
-  return { xml: L.join('\n') + '\n', qtd: desp.length, total: tot / 100, pulados };
+  return { xml: L.join('\n') + '\n', json, refs: desp.map(d => d.ref), status: Object.fromEntries(desp.map(d => [d.ref, d.status])), qtd: desp.length, total: tot / 100, pulados, conflitos };
 }
-const resumoSaida = r => r.qtd + ' despesa(s), ' + money(r.total) + (r.pulados.length ? '; sem CPF/CNPJ: ' + r.pulados.join(', ') : '');
+const resumoSaida = r => r.qtd + ' despesa(s), ' + money(r.total) + (r.pulados.length ? '; sem CPF/CNPJ: ' + r.pulados.join(', ') : '') + (r.conflitos.length ? '; referência já usada no Financeiro: ' + r.conflitos.join(', ') : '');
+
+/* --- API REST do Financeiro (Finanweb): Authorization: Bearer <chave do setor>, JSON, CORS aberto --- */
+const FIN_PADRAO = 'https://finanwebsistema.vercel.app/api/v1';
+function fin(){
+  const f = S.fin = S.fin || {};
+  f.url = f.url || ''; f.chave = f.chave || ''; f.externas = f.externas || [];
+  return f;
+}
+// referências PC-... que existem no Financeiro vindas de outro sistema Compras (não podem ser reusadas aqui)
+const refExterna = ref => fin().externas.includes(ref);
+async function apiFin(caminho, metodo = 'GET', corpo){
+  const f = fin();
+  if (!f.chave) throw new Error('informe a chave do Financeiro em Integrações');
+  const h = { Authorization: 'Bearer ' + f.chave, Accept: 'application/json' };
+  if (corpo) h['Content-Type'] = 'application/json';
+  const r = await fetch((f.url || FIN_PADRAO).replace(/\/+$/, '') + caminho, { method: metodo, headers: h, body: corpo ? JSON.stringify(corpo) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 429) throw new Error('limite de chamadas do Financeiro, tente em ' + (r.headers.get('Retry-After') || 'alguns') + ' s');
+  if (r.status === 401) throw new Error('chave do Financeiro ausente ou inválida (401)');
+  if (r.status === 403) throw new Error('a chave não é do setor compras (403)');
+  return { status: r.status, j };
+}
+$('#fin-saida-api').onclick = async () => {
+  const r = gerarSaida(); if (!r) return;
+  const b = $('#fin-saida-api'); b.disabled = true;
+  try {
+    const { status, j } = await apiFin('/compras', 'POST', r.json);
+    if (status === 422 || j.ok === false) throw new Error('o Financeiro recusou: ' + (j.erro || 'HTTP ' + status));
+    if (status >= 400) throw new Error('HTTP ' + status + (j.erro ? ': ' + j.erro : ''));
+    const em = new Date().toISOString();
+    r.refs.forEach(ref => { const p = S.pedidos.find(x => x.num === ref); if (p) p.enviadoFin = { em, status: r.status[ref], situacao: j.situacao || '' }; });
+    regXml({ direcao: 'enviado', via: 'api', xml: JSON.stringify(r.json, null, 2), contratoId: 'saida-v2' });
+    log('Financeiro: ' + resumoSaida(r) + ' enviadas pela API (' + (j.situacao || status) + ').');
+    salvar(); renderTudo();
+    toast(r.qtd + ' compra(s) enviada(s) ao Financeiro, aguardando aprovação.' + (r.pulados.length ? ' ' + r.pulados.length + ' sem CPF/CNPJ ficaram de fora.' : ''), 'ok');
+  } catch (e) { log('Financeiro: envio pela API falhou: ' + e.message); toast(e.message, 'erro'); }
+  finally { b.disabled = false; }
+};
 $('#fin-saida').onclick = () => {
   const r = gerarSaida(); if (!r) return;
   baixar('saida-v2_' + hoje() + '.xml', r.xml); regXml({ direcao: 'enviado', via: 'arquivo', xml: r.xml });
@@ -1431,7 +1494,7 @@ function gerarConsulta(){
   const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<consultaPendencias xmlns="' + NS_PEND + '" versao="1.0" id="' + id + '">\n  <origem>' + ORIGEM + '</origem>\n' +
     (doc ? '  <documento>' + doc + '</documento>\n' : '') + '</consultaPendencias>\n';
   S.consultas.unshift({ id, documento: doc, ts: new Date().toLocaleString('pt-BR') }); S.consultas = S.consultas.slice(0, 50);
-  return { id, xml, alvo: doc ? fmtDoc(doc) : 'todos' };
+  return { id, doc, xml, alvo: doc ? fmtDoc(doc) : 'todos' };
 }
 $('#cons-baixar').onclick = () => {
   const c = gerarConsulta(); baixar('consulta-pendencias_' + c.id + '.xml', c.xml); regXml({ direcao: 'enviado', via: 'arquivo', xml: c.xml });
@@ -1473,9 +1536,28 @@ function lerRespostaPendencias(text){
   }
   return { id, dataConsulta, itens, valorTotal: soma / 100, avisos };
 }
+$('#cons-api').onclick = async () => {
+  const c = gerarConsulta(); salvar(); $('#dlg-cons').close();
+  try {
+    const q = '/pendencias?origem=' + ORIGEM + '&id=' + encodeURIComponent(c.id) + (c.doc ? '&documento=' + c.doc : '');
+    const { status, j } = await apiFin(q);
+    if (status >= 400 && !j.erro) throw new Error('HTTP ' + status);
+    const avisos = [];
+    const itens = (j.pendencias || []).map(x => ({ referencia: x.referencia || '', fornecedor: (x.fornecedor && x.fornecedor.nome) || '',
+      documento: (x.fornecedor && x.fornecedor.documento) || '', categoria: x.categoria || '', valor: Number(x.valor) || 0, vencimento: x.vencimento || '' }));
+    const soma = itens.reduce((s, i) => s + centavos(i.valor), 0);
+    if (j.totalizador && j.totalizador.qtdPendencias !== itens.length) avisos.push('totalizador diz ' + j.totalizador.qtdPendencias + ', vieram ' + itens.length);
+    if (j.totalizador && centavos(j.totalizador.valorTotal) !== soma) avisos.push('valorTotal difere da soma');
+    regXml({ direcao: 'recebido', via: 'api', xml: JSON.stringify(j, null, 2), contratoId: 'pendencias-resposta', ok: !j.erro });
+    aplicarPendencias({ id: j.id || c.id, dataConsulta: j.dataConsulta || hoje(), erro: j.erro, itens, valorTotal: soma / 100, avisos }, 'api');
+  } catch (e) { log('Financeiro: consulta ' + c.id + ' pela API falhou: ' + e.message); toast(e.message, 'erro'); renderFin(); }
+};
 function aplicarRespostaPendencias(text, via){
   let r;
   try { r = lerRespostaPendencias(text); } catch (err) { log('Resposta de pendências (' + via + ') rejeitada: ' + err.message); if (via !== 'socket') toast(err.message, 'erro'); return false; }
+  return aplicarPendencias(r, via);
+}
+function aplicarPendencias(r, via){
   if (!S.consultas.some(c => c.id === r.id)) {
     if (via === 'socket') { log('Socket: respostaPendencias ' + r.id + ' ignorada (não é nossa).'); return false; }
     r.avisos.unshift('id ' + r.id + ' não corresponde a nenhuma consulta daqui');
@@ -1495,12 +1577,15 @@ function aplicarAvisoPagamento(text, via){
   const r = doc.documentElement;
   if (r.localName !== 'avisoPagamento' || r.namespaceURI !== NS_AVISO) return nega('não é um avisoPagamento.');
   const tx = n => { const e = [...r.children].find(c => c.localName === n); return e ? e.textContent.trim() : ''; };
-  const id = r.getAttribute('id') || '', origem = tx('origem'), ref = tx('referencia'), sit = tx('situacao').toUpperCase();
+  return aplicarAviso({ id: r.getAttribute('id') || '', origem: tx('origem'), referencia: tx('referencia'), situacao: tx('situacao'), dataPagamento: tx('dataPagamento'), valor: tx('valor') }, via, nega);
+}
+function aplicarAviso(a, via, nega){
+  const id = a.id || '', origem = a.origem, ref = a.referencia, sit = String(a.situacao || '').toUpperCase();
   if (origem && origem !== ORIGEM) return nega('aviso para outro setor (' + origem + ').');
   if (id && S.avisos.includes(id)) return nega('aviso ' + id + ' já aplicado.');
   const p = S.pedidos.find(x => x.num === ref); if (!p) return nega('a compra ' + ref + ' não existe aqui.');
   const antes = p.fin;
-  if (sit === 'PAGO') Object.assign(p, { fin: 'Pago', pagoEm: tx('dataPagamento') || hoje(), valorPago: parseFloat(tx('valor')) || undefined, avisoFin: 'PAGO' });
+  if (sit === 'PAGO') Object.assign(p, { fin: 'Pago', pagoEm: a.dataPagamento || hoje(), valorPago: parseFloat(a.valor) || undefined, avisoFin: 'PAGO' });
   else if (sit === 'CANCELADO') { p.avisoFin = 'CANCELADO'; if (p.fin === 'Pago') p.fin = 'Pendente'; }
   else return nega('situação desconhecida "' + sit + '".');
   if (id) { S.avisos.unshift(id); S.avisos = S.avisos.slice(0, 500); }
@@ -1508,12 +1593,54 @@ function aplicarAvisoPagamento(text, via){
   salvar(); renderTudo(); toast(sit === 'PAGO' ? 'Financeiro pagou ' + ref + '.' : 'Financeiro cancelou ' + ref + '.', sit === 'PAGO' ? 'ok' : 'erro');
   return true;
 }
+/* --- avisos de pagamento pela API (cursor em geradoEm). Só aplica a pedidos enviados por este app;
+   referências de outro sistema Compras viram "externas" e não são reusadas na numeração. --- */
+let buscandoAvisos = false, timerAvisos = null;
+async function buscarAvisosFin(manual){
+  const f = fin(); if (!f.chave || buscandoAvisos) { if (manual && !f.chave) toast('Informe a chave do Financeiro em Integrações.', 'erro'); return; }
+  buscandoAvisos = true;
+  try {
+    const { status, j } = await apiFin('/avisos-pagamento?origem=' + ORIGEM + (f.cursor ? '&desde=' + encodeURIComponent(f.cursor) : ''));
+    if (status >= 400) throw new Error('HTTP ' + status + (j.erro ? ': ' + j.erro : ''));
+    let aplicados = 0, externas = 0;
+    (j.avisos || []).sort((a, b) => String(a.geradoEm).localeCompare(String(b.geradoEm))).forEach(a => {
+      if (a.geradoEm && (!f.cursor || a.geradoEm > f.cursor)) f.cursor = a.geradoEm;
+      if (a.origem && a.origem !== ORIGEM) return;
+      if (a.id && S.avisos.includes(a.id)) return;
+      const p = S.pedidos.find(x => x.num === a.referencia);
+      if (!p || !p.enviadoFin) {
+        if (!f.externas.includes(a.referencia)) { f.externas.push(a.referencia); externas++; }
+        if (p) { const novo = proxNum(); log('Pedido ' + p.num + ' renumerado para ' + novo + ': o número já existe no Financeiro vindo de outro sistema Compras.'); p.num = novo; }
+        return;
+      }
+      if (aplicarAviso(a, 'api', m => { log('Aviso de pagamento (api) ignorado: ' + m); return false; })) {
+        aplicados++; regXml({ direcao: 'recebido', via: 'api', xml: JSON.stringify(a, null, 2), contratoId: 'aviso-pagamento' });
+      }
+    });
+    f.ultimaBusca = new Date().toISOString(); f.erro = '';
+    if (externas) log('Financeiro: ' + externas + ' referência(s) de outro sistema Compras reservada(s), não serão usadas em pedidos novos.');
+    salvar(); if (!$('#v-financeiro').hidden) renderFin();
+    if (manual) toast(aplicados ? aplicados + ' aviso(s) de pagamento aplicado(s).' : 'Nenhum aviso novo para os pedidos daqui.', 'ok');
+  } catch (e) {
+    if (manual || !f.erro) log('Financeiro: busca de avisos falhou: ' + e.message);
+    f.erro = e.message; salvar(); if (manual) toast(e.message, 'erro');
+  } finally { buscandoAvisos = false; }
+}
+function agendarAvisos(){
+  clearInterval(timerAvisos); timerAvisos = null;
+  const f = fin(); if (!f.chave || f.auto === false) return;
+  timerAvisos = setInterval(() => { if (!document.hidden) buscarAvisosFin(false); }, 5 * 60000);
+}
+$('#fin-avisos').onclick = () => buscarAvisosFin(true);
 $('#fin-resposta').onclick = () => $('#f-fin').click();
 lerArquivo($('#f-fin'), t => (/avisoPagamento/.test(t) ? aplicarAvisoPagamento : aplicarRespostaPendencias)(t, 'arquivo'));
 function renderFin(){
   const c = S.config, pr = S.pendencias, partes = [];
   partes.push(c.empresa ? 'Empresa <b>' + esc(c.empresa) + '</b> (' + esc(fmtDoc(c.cnpj)) + '), usuário ' + esc(c.usuario) + '.'
     : '<b style="color:var(--warn)">Dados da empresa não preenchidos</b> (Integrações).');
+  const f = fin();
+  partes.push(f.chave ? 'API do Financeiro configurada' + (f.ultimaBusca ? ', avisos buscados em ' + fmtDataHora(f.ultimaBusca) : '') + (f.erro ? ' <span style="color:var(--bad)">(erro: ' + esc(f.erro) + ')</span>' : '') + '.'
+    : '<b style="color:var(--warn)">Chave da API do Financeiro não informada</b> (Integrações).');
   if (S.consultas.length) partes.push('Última consulta: <span class="mono">' + esc(S.consultas[0].id) + '</span>.');
   if (pr) partes.push('Resposta <span class="mono">' + esc(pr.id) + '</span> de ' + fmtData(pr.dataConsulta) + (pr.erro ? ', erro: ' + esc(pr.erro) : ': ' + pr.itens.length + ' pendência(s), <b>' + money(pr.valorTotal) + '</b>') + '.' + (pr.avisos && pr.avisos.length ? ' Avisos: ' + esc(pr.avisos.join('; ')) + '.' : ''));
   $('#fin-resumo').innerHTML = partes.join(' ');
@@ -1577,6 +1704,9 @@ function renderIntegracoes(){
   $('#cfg-empresa').value = c.empresa || ''; $('#cfg-cnpj').value = c.cnpj ? fmtDoc(c.cnpj) : ''; $('#cfg-usuario').value = c.usuario || '';
   $('#api-url').value = est().apiUrl || API_PADRAO;
   $('#api-key').value = est().apiKey || '';
+  const f = fin();
+  $('#fin-url').value = f.url || FIN_PADRAO; $('#fin-chave').value = f.chave || ''; $('#fin-auto').checked = f.auto !== false;
+  $('#fin-status').textContent = !f.chave ? 'Sem chave' : f.erro ? 'Erro: ' + f.erro : f.ultimaBusca ? 'Última busca de avisos: ' + fmtDataHora(f.ultimaBusca) : '';
   $('#api-auto').checked = est().autoSaldo !== false;
   $('#api-auto-min').value = String(est().autoSaldoMin || 2);
   $('#sock-url').value = S.socket.url; $('#sock-dest-fin').value = S.socket.destFin; $('#sock-dest-est').value = S.socket.destEst;
@@ -1600,6 +1730,19 @@ $('#api-salvar').onclick = () => {
 };
 $('#api-auto').onchange = e => { est().autoSaldo = e.target.checked; salvar(); agendarSaldo(); log('Estoque: busca automática do saldo ' + (e.target.checked ? 'ligada' : 'desligada') + '.'); if (e.target.checked) atualizarSaldoSilencioso(); };
 $('#api-auto-min').onchange = e => { est().autoSaldoMin = Number(e.target.value); salvar(); agendarSaldo(); };
+$('#fin-salvar').onclick = () => {
+  const v = $('#fin-url').value.trim().replace(/\/+$/, '');
+  if (v && !/^https?:\/\/\S+$/i.test(v)) return toast('Use um endereço com http:// ou https://', 'erro');
+  const f = fin(); f.url = v === FIN_PADRAO ? '' : v; f.chave = $('#fin-chave').value.trim(); f.auto = $('#fin-auto').checked; f.erro = '';
+  salvar(); agendarAvisos(); log('Financeiro: API configurada' + (f.chave ? ' com chave.' : ' sem chave.'));
+  toast('Configuração do Financeiro salva.', 'ok'); renderIntegracoes();
+  if (f.chave && f.auto !== false) buscarAvisosFin(false);
+};
+$('#fin-testar').onclick = async () => {
+  const f = fin(), antes = f.chave; f.chave = $('#fin-chave').value.trim() || antes;
+  try { const { status } = await apiFin('/pendencias?origem=' + ORIGEM + '&id=compras-teste'); toast(status < 400 ? 'Financeiro respondeu ' + status + ', chave aceita.' : 'Financeiro respondeu ' + status + '.', status < 400 ? 'ok' : 'erro'); }
+  catch (e) { toast(e.message, 'erro'); } finally { f.chave = antes; }
+};
 $('#api-testar').onclick = async () => {
   try { const r = await apiEstoque('/api/xml', 'GET'); toast(r.status < 400 ? 'API respondeu ' + r.status + '.' : 'API respondeu ' + r.status + ': ' + resumoApi(r.corpo), r.status < 400 ? 'ok' : 'erro'); }
   catch (e) { toast('Sem resposta: ' + e.message + '. Se for CORS, abra a ponte.', 'erro'); }
@@ -1730,9 +1873,9 @@ const CONTRATOS = [
 ];
 const contratoDe = x => CONTRATOS.find(c => { try { return c.teste(x); } catch (e) { return false; } }) || null;
 function regXml(o){
-  const xml = String(o.xml || '').replace(/^﻿/, ''), c = contratoDe(xml);
+  const xml = String(o.xml || '').replace(/^﻿/, ''), c = o.contratoId ? CONTRATOS.find(x => x.id === o.contratoId) : contratoDe(xml);
   if (!c && o.direcao === 'enviado') return;
-  const ref = (xml.match(/referencia="([^"]+)"/) || xml.match(/<idConsulta>([^<]+)</) || xml.match(/<lote_id>([^<]+)</) || xml.match(/\bid="([^"]+)"/) || [])[1] || '';
+  const ref = (xml.match(/referencia="([^"]+)"/) || xml.match(/"referencia":\s*"([^"]+)"/) || xml.match(/"id":\s*"([^"]+)"/) || xml.match(/<idConsulta>([^<]+)</) || xml.match(/<lote_id>([^<]+)</) || xml.match(/\bid="([^"]+)"/) || [])[1] || '';
   S.xmlHist.unshift({ id: uid(), em: new Date().toISOString(), direcao: o.direcao, via: o.via, contrato: c ? c.id : '', nome: c ? c.nome : 'XML não identificado',
     sistema: c ? c.sistema : 'Estoque', ref, ok: o.ok !== false, detalhe: o.detalhe || '', cortado: xml.length > 200000, xml: xml.slice(0, 200000) });
   S.xmlHist = S.xmlHist.slice(0, 200); salvar();
@@ -1838,6 +1981,7 @@ statusSock();
 if (!EX) toast('estoque-xml.js não encontrado: a parte de Estoque precisa dele na mesma pasta.', 'erro');
 sockConectar();
 if (est().autoSaldo !== false) { atualizarSaldoSilencioso(); agendarSaldo(); }
+if (fin().chave && fin().auto !== false) { buscarAvisosFin(false); agendarAvisos(); }
 </script>
 </body>
 </html>
