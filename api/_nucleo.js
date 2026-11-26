@@ -45,7 +45,7 @@ const novaChave = () => crypto.randomBytes(24).toString('hex');
 
 function cors(res){
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept');
   res.setHeader('Access-Control-Max-Age', '86400');
 }
@@ -178,7 +178,7 @@ async function registrarAcesso(req, status, rota){
   const q = req._quem; if (!q) return;
   try {
     const cmds = [];
-    if (req.method !== 'GET' || status >= 400 || req._comItens)
+    if ((req.method !== 'GET' || status >= 400 || req._comItens) && !(status < 400 && /\/v1\/dados$/.test(rota)))
       cmds.push(['LPUSH', 'acessos', JSON.stringify({ em: agora(), setor: q.setor, chave: q.id, metodo: req._metodoLog || req.method, rota, status })], ['LTRIM', 'acessos', 0, 499]);
     if (q.setor !== 'painel' && (Date.now() - (ultimoUsoGravado.get(q.id) || 0)) > 300000) {
       ultimoUsoGravado.set(q.id, Date.now()); cmds.push(['HSET', 'usos', q.id, agora()]);

@@ -184,14 +184,17 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
   <button class="nav on" data-view="pedidos">Pedidos <span class="n" id="n-pedidos" hidden></span></button>
   <button class="nav" data-view="recebimentos">Recebimentos <span class="n" id="n-receb" hidden></span></button>
   <button class="nav" data-view="estoque">Estoque <span class="n" id="n-estoque" hidden></span></button>
+  <button class="nav" data-view="movimentacoes">Movimentações</button>
   <button class="nav" data-view="financeiro">Financeiro <span class="n" id="n-fin" hidden></span></button>
   <button class="nav" data-view="fornecedores">Fornecedores</button>
+  <button class="nav" data-view="importados">CSV importados</button>
   <button class="nav" data-view="integracoes">Integrações</button>
   <button class="nav" data-view="api">API e contratos <span class="n" id="n-api" hidden></span></button>
   <button class="nav" data-view="atividade">Atividade</button>
   <a class="nav" href="soap/" target="_blank" rel="noopener">Webservice SOAP <span aria-hidden="true">↗</span></a>
   <a class="nav" href="contratos/" target="_blank" rel="noopener">Contratos XML <span aria-hidden="true">↗</span></a>
   <div class="side-foot">
+    <span class="st" id="pill-sync" title="Dados compartilhados entre computadores">Dados só neste navegador</span>
     <span class="st" id="pill-sock">Socket desconectado</span>
   </div>
 </aside>
@@ -331,6 +334,37 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
   </div>
 </section>
 
+<!-- ============ MOVIMENTAÇÕES ============ -->
+<section id="v-movimentacoes" hidden>
+  <div class="head">
+    <div><h1>Movimentações</h1><div class="sub">Entradas e saídas de itens. Cada recebimento gera uma entrada automática.</div></div>
+    <div class="row">
+      <div class="menu">
+        <button class="btn" data-menu>Importar e exportar ▾</button>
+        <div class="menu-list" hidden>
+          <button id="mov-importar">Importar CSV<small>SKU, Nome, Quantidade, Fornecedor, Tipo, Data, Origem</small></button>
+          <button id="mov-modelo">Baixar modelo do CSV</button>
+          <button id="mov-exportar">Exportar CSV<small>Uma linha por movimentação</small></button>
+        </div>
+      </div>
+      <button class="btn pri" id="mov-novo">Nova movimentação</button>
+    </div>
+  </div>
+  <div class="stats" id="st-mov"></div>
+  <div class="card">
+    <div class="bar">
+      <input class="search" id="fm-q" type="search" placeholder="Buscar SKU, produto, fornecedor ou origem">
+      <select id="fm-tipo" aria-label="Filtrar tipo"><option value="">Tipo: todos</option><option value="entrada">Entradas</option><option value="saida">Saídas</option></select>
+      <span class="grow"></span><span class="mut sm" id="fm-meta"></span>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th>Data</th><th>Tipo</th><th>SKU</th><th>Produto</th><th class="r">Qtde</th><th>Fornecedor</th><th>Origem</th><th></th></tr></thead>
+      <tbody id="tb-mov"></tbody>
+    </table></div>
+    <div class="empty" id="em-mov" hidden><b>Nenhuma movimentação</b>Receba itens, lance uma movimentação manual ou importe um CSV.</div>
+  </div>
+</section>
+
 <!-- ============ FINANCEIRO ============ -->
 <section id="v-financeiro" hidden>
   <div class="head">
@@ -380,6 +414,21 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
       <tbody id="tb-forn"></tbody>
     </table></div>
     <div class="empty" id="em-forn" hidden><b>Nenhum fornecedor</b>Cadastre um ou crie pedidos.</div>
+  </div>
+</section>
+
+<!-- ============ CSV IMPORTADOS ============ -->
+<section id="v-importados" hidden>
+  <div class="head">
+    <div><h1>CSV importados</h1><div class="sub">Leia um CSV de qualquer layout, vindo de outro sistema. Depois veja, exporte de volta ou exclua.</div></div>
+    <button class="btn pri" id="imp-importar">Importar CSV avulso</button>
+  </div>
+  <div class="card">
+    <div class="scroll"><table>
+      <thead><tr><th>Arquivo</th><th>Colunas</th><th class="r">Linhas</th><th>Importado em</th><th></th></tr></thead>
+      <tbody id="tb-imp"></tbody>
+    </table></div>
+    <div class="empty" id="em-imp" hidden><b>Nenhum CSV importado</b>Use Importar CSV avulso para ler um arquivo de qualquer layout.</div>
   </div>
 </section>
 
@@ -645,7 +694,32 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
   <div class="df"><a class="link" id="xml-xsd" target="_blank" rel="noopener">Abrir XSD</a><div class="row"><button class="btn" id="xml-copiar">Copiar</button><button class="btn" id="xml-baixar">Baixar</button></div></div>
 </dialog>
 
+<dialog id="dlg-mov">
+  <div class="dh"><h2>Nova movimentação</h2><button class="x" data-close aria-label="Fechar">×</button></div>
+  <div class="db">
+    <div class="g2">
+      <label class="f">Tipo<select id="mv-tipo"><option value="entrada">Entrada</option><option value="saida">Saída</option></select></label>
+      <label class="f">Quantidade<input id="mv-qtd" type="number" min="1" value="1"></label>
+    </div>
+    <div class="g2">
+      <label class="f">SKU<input id="mv-sku" placeholder="Ex.: A100" list="dl-skus"></label>
+      <label class="f">Produto<input id="mv-produto" placeholder="Nome do produto"></label>
+    </div>
+    <label class="f">Fornecedor (opcional)<input id="mv-forn" list="dl-forn" autocomplete="off" placeholder="Selecione ou digite"></label>
+    <label class="f">Origem<input id="mv-origem" placeholder="Ex.: Ajuste manual, Inventário"></label>
+  </div>
+  <div class="df"><span></span><div class="row"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="mv-salvar">Salvar movimentação</button></div></div>
+</dialog>
+
+<dialog id="dlg-ds" class="lg">
+  <div class="dh"><h2 id="ds-titulo">CSV</h2><button class="x" data-close aria-label="Fechar">×</button></div>
+  <div class="db"><div class="hint" id="ds-meta"></div><div class="scroll" style="max-height:60vh"><table id="ds-tabela"><thead></thead><tbody></tbody></table></div></div>
+  <div class="df"><span></span><div class="row"><button class="btn" id="ds-exportar">Exportar CSV</button><button class="btn pri" data-close>Fechar</button></div></div>
+</dialog>
+
 <input type="file" id="f-csv" accept=".csv,.txt" hidden>
+<input type="file" id="f-mov" accept=".csv,.txt" hidden>
+<input type="file" id="f-imp" accept=".csv,.txt" hidden>
 <input type="file" id="f-fin" accept=".xml" hidden>
 <input type="file" id="f-est" accept=".xml" hidden>
 <div class="toasts" id="toasts" aria-live="polite"></div>
@@ -735,7 +809,7 @@ function estadoVazio(){
     estoque: null, xmlHist: [], avisos: [] };
 }
 let S = estadoVazio();
-function salvar(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); } catch (e) {} contadores(); }
+function salvar(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); } catch (e) {} contadores(); if (typeof agendarSync === 'function') agendarSync(); }
 function carregar(){
   try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) { S = Object.assign(estadoVazio(), JSON.parse(raw)); return true; } } catch (e) {}
   return false;
@@ -813,9 +887,9 @@ function recalcUsos(){
 function docForn(nome){ const f = acharForn(nome), d = soDigitos(f && f.cnpj); return docValido(d) ? d : undefined; }
 
 /* ---------- navegação ---------- */
-const VIEWS = ['pedidos', 'recebimentos', 'estoque', 'financeiro', 'fornecedores', 'integracoes', 'api', 'atividade'];
-const RENDER = { pedidos: renderPedidos, recebimentos: renderReceb, estoque: renderEstoque, financeiro: renderFin,
-  fornecedores: renderForn, integracoes: renderIntegracoes, api: renderApi, atividade: renderAtividade };
+const VIEWS = ['pedidos', 'recebimentos', 'estoque', 'movimentacoes', 'financeiro', 'fornecedores', 'importados', 'integracoes', 'api', 'atividade'];
+const RENDER = { pedidos: renderPedidos, recebimentos: renderReceb, estoque: renderEstoque, movimentacoes: renderMov, financeiro: renderFin,
+  fornecedores: renderForn, importados: renderImportados, integracoes: renderIntegracoes, api: renderApi, atividade: renderAtividade };
 function ir(v){
   if (!VIEWS.includes(v)) v = 'pedidos';
   $$('.nav').forEach(b => b.classList.toggle('on', b.dataset.view === v));
@@ -1124,6 +1198,7 @@ const situacao = p => p.quantidade <= 0 ? 'falta' : p.quantidade <= p.estoqueMin
 function skuEst(sku, nome){ if (!EX) return String(sku || '').trim(); return (EX.normalizarSku(sku) || EX.normalizarSku(nome)).slice(0, 40).replace(/-+$/, ''); }
 function exigeModulo(){ if (EX) return true; toast('estoque-xml.js não carregou: deixe-o na mesma pasta do index.html.', 'erro'); return false; }
 function registraEntrada(p, it, delta, restoAntes){
+  registraMovimentacao({ tipo: 'entrada', sku: it.sku, produto: it.nome, quantidade: delta, fornecedor: p.fornecedor, origem: 'Recebimento ' + p.num });
   const s = est(); s.seq++;
   const id = String(p.num).replace(/^PC-/i, '') + '-' + s.seq;
   s.entradas.unshift({ id, externalId: 'REC-' + id, pedido: p.num, recebidoEm: new Date().toISOString(), fornecedor: p.fornecedor,
@@ -1970,6 +2045,280 @@ function renderFin(){
 }
 
 /* =============================================================================
+   MOVIMENTAÇÕES (entradas e saídas de itens)
+   ========================================================================== */
+const normalizaTipo = t => { const s = semAcento(t).toLowerCase().trim(); return (s.startsWith('sa') || s === 'out' || s === 's') ? 'saida' : 'entrada'; };
+function registraMovimentacao(m){
+  const mov = { id: uid(), data: isoOk(m.data) ? m.data : hoje(), tipo: normalizaTipo(m.tipo), sku: (m.sku || '').trim(),
+    produto: (m.produto || '').trim(), quantidade: Math.abs(parseInt(m.quantidade, 10) || 0),
+    fornecedor: (m.fornecedor || '').trim(), origem: (m.origem || '').trim() };
+  if (mov.quantidade <= 0) return null;
+  S.movimentacoes = S.movimentacoes || [];
+  S.movimentacoes.unshift(mov);
+  return mov;
+}
+// quem já recebia itens antes desta tela existir: cria as entradas a partir dos recebimentos guardados
+function movimentacoesIniciais(){
+  if (S.movIniciadas) return;
+  S.movimentacoes = S.movimentacoes || [];
+  const ja = new Set(S.movimentacoes.map(m => m.origem + '|' + m.sku + '|' + m.data + '|' + m.quantidade));
+  [...est().entradas].reverse().forEach(e => {
+    const data = String(e.recebidoEm || '').slice(0, 10), origem = 'Recebimento ' + e.pedido;
+    if (ja.has(origem + '|' + (e.sku || '') + '|' + data + '|' + e.quantidade)) return;
+    S.movimentacoes.unshift({ id: uid(), data: isoOk(data) ? data : hoje(), tipo: 'entrada', sku: e.sku || '', produto: e.nome || '',
+      quantidade: Number(e.quantidade) || 0, fornecedor: e.fornecedor || '', origem });
+  });
+  S.movIniciadas = true;
+}
+const fm = { q: '', tipo: '' };
+function renderMov(){
+  const todas = S.movimentacoes || [], q = chave(fm.q);
+  const lista = todas.filter(m => (!fm.tipo || m.tipo === fm.tipo) && contem(q, m.sku, m.produto, m.fornecedor, m.origem))
+    .sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));
+  const ent = todas.filter(m => m.tipo === 'entrada').reduce((t, m) => t + m.quantidade, 0);
+  const sai = todas.filter(m => m.tipo === 'saida').reduce((t, m) => t + m.quantidade, 0);
+  stats('#st-mov', [{ v: todas.length, t: 'movimentações' }, { v: ent, t: 'unidades que entraram', c: 'ok' }, { v: sai, t: 'unidades que saíram' },
+    { v: todas.filter(m => m.data === hoje()).length, t: 'hoje' }]);
+  $('#fm-meta').textContent = todas.length ? lista.length + ' movimentação(ões)' : '';
+  $('#em-mov').hidden = lista.length > 0;
+  $('#tb-mov').innerHTML = lista.map(m => `<tr>
+    <td class="mut">${esc(fmtData(m.data))}</td><td>${m.tipo === 'entrada' ? st('Entrada', 'ok') : st('Saída', 'warn')}</td>
+    <td class="mono">${esc(m.sku) || '—'}</td><td>${esc(m.produto) || '—'}</td><td class="r">${m.quantidade}</td>
+    <td>${esc(m.fornecedor) || '—'}</td><td class="mut">${esc(m.origem) || '—'}</td>
+    <td><div class="acts"><button class="link bad" data-del-mov="${esc(m.id)}">Excluir</button></div></td></tr>`).join('');
+}
+$('#fm-q').oninput = e => { fm.q = e.target.value; renderMov(); };
+$('#fm-tipo').onchange = e => { fm.tipo = e.target.value; renderMov(); };
+$('#mov-novo').onclick = () => {
+  datalistForn(); renderConsultas();
+  $('#mv-tipo').value = 'entrada'; $('#mv-qtd').value = '1'; $('#mv-sku').value = ''; $('#mv-produto').value = '';
+  $('#mv-forn').value = ''; $('#mv-origem').value = 'Ajuste manual';
+  abrir('#dlg-mov', '#mv-sku');
+};
+$('#mv-sku').onchange = () => { const p = produtosConhecidos().get($('#mv-sku').value.trim()); if (p && !$('#mv-produto').value) $('#mv-produto').value = p.nome; };
+$('#mv-salvar').onclick = () => {
+  const produto = $('#mv-produto').value.trim(), qtd = parseInt($('#mv-qtd').value, 10) || 0;
+  if (!produto) return toast('Informe o produto.', 'erro');
+  if (qtd <= 0) return toast('A quantidade deve ser maior que zero.', 'erro');
+  const m = registraMovimentacao({ tipo: $('#mv-tipo').value, sku: $('#mv-sku').value, produto, quantidade: qtd,
+    fornecedor: padronizaNome($('#mv-forn').value), origem: $('#mv-origem').value.trim() || 'Ajuste manual' });
+  log('Movimentação manual: ' + (m.tipo === 'entrada' ? 'entrada' : 'saída') + ' de ' + m.quantidade + 'x ' + m.produto + '.');
+  salvar(); $('#dlg-mov').close(); renderMov(); toast('Movimentação registrada.', 'ok');
+};
+$('#tb-mov').onclick = e => {
+  const b = e.target.closest('[data-del-mov]'); if (!b) return;
+  const m = S.movimentacoes.find(x => x.id === b.dataset.delMov); if (!m) return;
+  if (!confirm('Excluir esta movimentação (' + (m.tipo === 'entrada' ? 'entrada' : 'saída') + ' de ' + m.quantidade + 'x ' + (m.produto || m.sku) + ')?')) return;
+  S.movimentacoes = S.movimentacoes.filter(x => x.id !== m.id);
+  log('Movimentação excluída: ' + m.quantidade + 'x ' + (m.produto || m.sku) + '.'); salvar(); renderMov();
+};
+$('#mov-exportar').onclick = () => {
+  const l = [...(S.movimentacoes || [])].sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
+  if (!l.length) return toast('Nenhuma movimentação para exportar.', 'erro');
+  baixar('movimentacoes_' + hoje() + '.csv', csvLinha(['Data', 'Tipo', 'SKU', 'Nome', 'Quantidade', 'Fornecedor', 'Origem']) +
+    l.map(m => csvLinha([m.data, m.tipo === 'entrada' ? 'Entrada' : 'Saída', m.sku, m.produto, m.quantidade, m.fornecedor, m.origem])).join(''), 'csv');
+  log('CSV de movimentações exportado (' + l.length + ').'); toast(l.length + ' movimentação(ões) exportada(s).', 'ok');
+};
+$('#mov-modelo').onclick = () => {
+  baixar('modelo_movimentacoes.csv', csvLinha(['SKU', 'Nome', 'Quantidade', 'Fornecedor', 'Tipo', 'Data', 'Origem']) +
+    csvLinha(['A100', 'Papel A4 75g', 50, 'Distribuidora Sul Ltda', 'Entrada', hoje(), 'Compra']) +
+    csvLinha(['A250', 'Caneta azul', 10, '', 'Saída', hoje(), 'Consumo interno']), 'csv');
+  toast('Modelo baixado. Preencha e importe em "Importar CSV".');
+};
+$('#mov-importar').onclick = () => $('#f-mov').click();
+lerArquivo($('#f-mov'), texto => {
+  const linhas = texto.replace(/^﻿/, '').trim().split(/\r?\n/).filter(l => l.trim());
+  if (linhas.length < 2) return toast('CSV vazio ou sem linhas de dados.', 'erro');
+  const d = delim(linhas[0]), head = splitCSV(linhas.shift(), d).map(h => semAcento(h).toLowerCase());
+  const ix = (...p) => head.findIndex(h => p.some(x => h.startsWith(x)));
+  const iSku = ix('sku'), iProd = ix('produto', 'nome'), iTipo = ix('tipo'), iQtd = ix('quant'), iData = ix('data'), iOrig = ix('orig'), iForn = ix('fornec');
+  const falta = [iProd < 0 && 'Nome', iTipo < 0 && 'Tipo', iQtd < 0 && 'Quantidade'].filter(Boolean);
+  if (falta.length) return toast('Faltam colunas no CSV: ' + falta.join(', ') + '. Baixe o modelo.', 'erro');
+  const dataIso = v => { v = (v || '').trim(); const m = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + '-' + m[2] + '-' + m[1] : v; };
+  let n = 0;
+  linhas.forEach(l => {
+    const c = splitCSV(l, d), at = i => (i >= 0 ? (c[i] || '') : '').trim();
+    if (!at(iProd) && !at(iSku)) return;
+    if (registraMovimentacao({ sku: at(iSku), produto: at(iProd), tipo: at(iTipo), quantidade: at(iQtd), data: dataIso(at(iData)), fornecedor: padronizaNome(at(iForn)), origem: at(iOrig) || 'Importado por CSV' })) n++;
+  });
+  if (!n) return toast('Nenhuma linha válida no CSV.', 'erro');
+  log('CSV de movimentações importado (' + n + ' registro(s)).'); salvar(); renderMov(); toast(n + ' movimentação(ões) importada(s).', 'ok');
+});
+
+/* =============================================================================
+   CSV IMPORTADOS (qualquer layout, vindo de outro sistema)
+   ========================================================================== */
+function lerCsvGenerico(texto){
+  const linhas = texto.replace(/^﻿/, '').replace(/\r/g, '').trim().split('\n').filter(l => l.trim());
+  if (!linhas.length) return { colunas: [], linhas: [] };
+  const d = delim(linhas[0]), vistos = {};
+  const colunas = splitCSV(linhas.shift(), d).map((c, i) => c || 'coluna_' + (i + 1))
+    .map(c => { if (vistos[c] != null) { vistos[c]++; return c + '_' + vistos[c]; } vistos[c] = 0; return c; });
+  return { colunas, delim: d, linhas: linhas.map(l => { const v = splitCSV(l, d), o = {}; colunas.forEach((c, i) => o[c] = v[i] != null ? v[i] : ''); return o; }) };
+}
+const csvDoConjunto = ds => csvLinha(ds.colunas) + ds.linhas.map(r => csvLinha(ds.colunas.map(c => r[c]))).join('');
+function renderImportados(){
+  const l = S.importados || [];
+  $('#em-imp').hidden = l.length > 0;
+  $('#tb-imp').innerHTML = l.map(d => `<tr><td>${esc(d.arquivo)}</td>
+    <td><b>${d.colunas.length}</b> <span class="mut sm">${esc(d.colunas.slice(0, 4).join(', '))}${d.colunas.length > 4 ? '…' : ''}</span></td>
+    <td class="r">${d.linhas.length}</td><td class="mut sm">${esc(d.ts)}</td>
+    <td><div class="acts"><button class="link" data-ver-ds="${esc(d.id)}">Ver</button><button class="link mut" data-exp-ds="${esc(d.id)}">Exportar</button><button class="link bad" data-del-ds="${esc(d.id)}">Excluir</button></div></td></tr>`).join('');
+}
+function verConjunto(d){
+  $('#ds-titulo').textContent = d.arquivo;
+  const lim = Math.min(d.linhas.length, 200);
+  $('#ds-meta').textContent = d.colunas.length + ' coluna(s), ' + d.linhas.length + ' linha(s), importado em ' + d.ts + (d.linhas.length > lim ? '. Mostrando as primeiras ' + lim + ' linhas.' : '.');
+  $('#ds-tabela thead').innerHTML = '<tr>' + d.colunas.map(c => `<th>${esc(c)}</th>`).join('') + '</tr>';
+  $('#ds-tabela tbody').innerHTML = d.linhas.slice(0, lim).map(r => '<tr>' + d.colunas.map(c => `<td>${esc(r[c] ?? '')}</td>`).join('') + '</tr>').join('');
+  $('#ds-exportar').onclick = () => baixar(d.arquivo.replace(/\.(csv|txt)$/i, '') + '_reexport.csv', csvDoConjunto(d), 'csv');
+  abrir('#dlg-ds');
+}
+$('#imp-importar').onclick = () => $('#f-imp').click();
+lerArquivo($('#f-imp'), (texto, nome) => {
+  let ds;
+  try { ds = lerCsvGenerico(texto); } catch (e) { return toast('Não consegui ler o CSV.', 'erro'); }
+  if (!ds.linhas.length) return toast('CSV vazio ou sem linhas de dados.', 'erro');
+  const reg = { id: uid(), arquivo: nome || 'importado.csv', colunas: ds.colunas, linhas: ds.linhas, delim: ds.delim, ts: new Date().toLocaleString('pt-BR') };
+  S.importados = S.importados || []; S.importados.unshift(reg);
+  log('CSV avulso importado: "' + reg.arquivo + '" (' + ds.colunas.length + ' colunas, ' + ds.linhas.length + ' linhas).');
+  salvar(); renderImportados(); toast('"' + reg.arquivo + '" importado.', 'ok');
+});
+$('#tb-imp').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const id = b.dataset.verDs || b.dataset.expDs || b.dataset.delDs, d = (S.importados || []).find(x => x.id === id); if (!d) return;
+  if (b.dataset.verDs) verConjunto(d);
+  if (b.dataset.expDs) baixar(d.arquivo.replace(/\.(csv|txt)$/i, '') + '_reexport.csv', csvDoConjunto(d), 'csv');
+  if (b.dataset.delDs && confirm('Excluir o CSV importado "' + d.arquivo + '"?')) {
+    S.importados = S.importados.filter(x => x.id !== id); log('CSV importado "' + d.arquivo + '" removido.'); salvar(); renderImportados();
+  }
+};
+
+/* =============================================================================
+   DADOS COMPARTILHADOS NO SERVIDOR
+   Pedidos, fornecedores, movimentações etc. ficam no servidor (com a chave de administrador),
+   e todo computador vê os mesmos dados. Junção em três vias: o que só um lado mudou desde a
+   última sincronização é mantido; se os dois mudaram o mesmo registro, vale o deste computador.
+   ========================================================================== */
+const BASE_KEY = STORAGE_KEY + ':sync';
+const LIMITE_SYNC = 900000;
+const igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+function lerBaseSync(){ try { return JSON.parse(localStorage.getItem(BASE_KEY)) || { versao: 0, dados: null }; } catch (e) { return { versao: 0, dados: null }; } }
+function gravarBaseSync(versao, dados){ try { localStorage.setItem(BASE_KEY, JSON.stringify({ versao, dados, em: new Date().toISOString() })); } catch (e) {} }
+let syncAviso = '';
+function pacoteDados(){
+  const e = est(), f = fin();
+  const p = { seq: S.seq, consultaSeq: S.consultaSeq || 0, pedidos: S.pedidos, fornecedores: S.fornecedores, movimentacoes: S.movimentacoes || [],
+    importados: S.importados || [], config: S.config, consultas: S.consultas || [], avisos: S.avisos || [], logs: (S.logs || []).slice(0, 300),
+    estoque: { seq: e.seq, consultaSeq: e.consultaSeq, entradas: e.entradas, consultas: e.consultas }, fin: { externas: f.externas || [] } };
+  syncAviso = '';
+  if (JSON.stringify(p).length > LIMITE_SYNC) { delete p.importados; syncAviso = 'Os CSV importados são grandes demais e ficam só neste navegador.'; }
+  return JSON.parse(JSON.stringify(p));
+}
+function aplicarDados(d){
+  ['seq', 'consultaSeq', 'pedidos', 'fornecedores', 'movimentacoes', 'importados', 'config', 'consultas', 'avisos', 'logs'].forEach(k => { if (d[k] !== undefined) S[k] = d[k]; });
+  if (d.estoque) Object.assign(est(), d.estoque);
+  if (d.fin) fin().externas = d.fin.externas || [];
+  S.movIniciadas = true; delete S.semente;
+}
+function juntaLista(base, loc, srv){
+  base = base || []; loc = loc || []; srv = srv || [];
+  const mB = new Map(base.map(x => [x.id, x])), mL = new Map(loc.map(x => [x.id, x])), mS = new Map(srv.map(x => [x.id, x]));
+  const ids = [...loc.filter(x => !mS.has(x.id)).map(x => x.id), ...srv.map(x => x.id)];
+  const out = [];
+  [...new Set(ids)].forEach(id => {
+    const b = mB.get(id), l = mL.get(id), s = mS.get(id);
+    if (l && s) out.push(b && igual(l, b) ? s : l);
+    else if (l) { if (!(b && igual(l, b))) out.push(l); }      // o outro computador apagou e aqui não mudou: some
+    else if (s) { if (!(b && igual(s, b))) out.push(s); }      // apagado aqui e o servidor não mudou: some
+  });
+  return out;
+}
+const juntaValor = (base, loc, srv) => (loc === undefined ? srv : srv === undefined ? loc : (igual(loc, base) ? srv : loc));
+function juntarDados(base, loc, srv){
+  base = base || {};
+  const r = {};
+  ['pedidos', 'fornecedores', 'movimentacoes', 'importados', 'consultas', 'avisos'].forEach(k => {
+    if (loc[k] === undefined) r[k] = srv[k]; else r[k] = juntaLista(base[k], loc[k], srv[k]);
+  });
+  r.seq = Math.max(loc.seq || 0, srv.seq || 0); r.consultaSeq = Math.max(loc.consultaSeq || 0, srv.consultaSeq || 0);
+  r.config = juntaValor(base.config, loc.config, srv.config);
+  const chaveLog = x => x.ts + '|' + x.evt, noSrv = new Set((srv.logs || []).map(chaveLog)), naBase = new Set((base.logs || []).map(chaveLog));
+  r.logs = [...(loc.logs || []).filter(x => !noSrv.has(chaveLog(x)) && !naBase.has(chaveLog(x))), ...(srv.logs || [])].slice(0, 300);
+  const bE = base.estoque || {}, lE = loc.estoque || {}, sE = srv.estoque || {};
+  r.estoque = { seq: Math.max(lE.seq || 0, sE.seq || 0), consultaSeq: Math.max(lE.consultaSeq || 0, sE.consultaSeq || 0),
+    entradas: juntaLista(bE.entradas, lE.entradas, sE.entradas), consultas: juntaLista(bE.consultas, lE.consultas, sE.consultas) };
+  r.fin = { externas: [...new Set([...((loc.fin || {}).externas || []), ...((srv.fin || {}).externas || [])])] };
+  // mesmo fornecedor cadastrado nos dois computadores: fica um só, completando CPF/CNPJ e contato
+  const vistos = new Map();
+  r.fornecedores = (r.fornecedores || []).filter(f => {
+    const k = chave(f.nome), o = vistos.get(k);
+    if (!o) { vistos.set(k, f); return true; }
+    if (!o.cnpj && f.cnpj) o.cnpj = f.cnpj; if (!o.contato && f.contato) o.contato = f.contato; o.cadastrado = o.cadastrado || f.cadastrado;
+    return false;
+  });
+  // mesmo número de pedido criado nos dois computadores: o que já foi ao Financeiro (ou o do servidor) fica com o número
+  const doSrv = new Set((srv.pedidos || []).map(p => p.id)), porNum = new Map(), renumerar = [];
+  (r.pedidos || []).forEach(p => {
+    const o = porNum.get(p.num);
+    if (!o) { porNum.set(p.num, p); return; }
+    const manter = (o.enviadoFin && !p.enviadoFin) || (doSrv.has(o.id) && !doSrv.has(p.id)) ? o : (p.enviadoFin && !o.enviadoFin) || doSrv.has(p.id) ? p : o;
+    renumerar.push(manter === o ? p : o); porNum.set(p.num, manter);
+  });
+  r.renumerar = renumerar.map(p => p.id);
+  return r;
+}
+let syncTimer = null, sincronizando = false, syncDeNovo = false, syncEstado = { ok: null, em: null, erro: '' };
+function agendarSync(){ if (!apiC().admin) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => sincronizarDados(false), 1500); }
+function pillSync(){
+  const el = $('#pill-sync'); if (!el) return;
+  if (!apiC().admin) { el.className = 'st warn'; el.textContent = 'Dados só neste navegador'; el.title = 'Cole a chave de administrador em API e contratos para guardar os dados no servidor.'; return; }
+  if (syncEstado.erro) { el.className = 'st bad'; el.textContent = 'Sincronização falhou'; el.title = syncEstado.erro; return; }
+  el.className = 'st ok'; el.textContent = 'Dados no servidor'; el.title = syncEstado.em ? 'Sincronizado em ' + fmtDataHora(syncEstado.em) + (syncAviso ? '. ' + syncAviso : '') : '';
+}
+async function sincronizarDados(manual, tentativa = 0){
+  if (!apiC().admin) { pillSync(); return; }
+  if (sincronizando) { syncDeNovo = true; return; }
+  sincronizando = true;
+  try {
+    let base = lerBaseSync();
+    const r = await chamarApi('/dados' + (base.dados && base.versao ? '?desde=' + base.versao : ''));
+    let mudou = false;
+    if (!r.igual) {
+      const srv = r.dados, local = pacoteDados();
+      if (!srv) { /* servidor vazio: este computador sobe o que tem */ }
+      else if (!base.dados && S.semente) { aplicarDados(srv); mudou = true; }                 // computador novo com dados de exemplo: usa os do servidor
+      else {
+        const j = juntarDados(base.dados, local, srv), ren = j.renumerar; delete j.renumerar;
+        aplicarDados(j);
+        ren.forEach(id => { const p = S.pedidos.find(x => x.id === id); if (p) { const antes = p.num; p.num = proxNum(); log('Pedido ' + antes + ' renumerado para ' + p.num + ': o número já existia em outro computador.'); } });
+        mudou = !igual(pacoteDados(), local);
+      }
+      base = { versao: r.versao, dados: srv };
+      gravarBaseSync(base.versao, base.dados);
+      if (mudou) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); } catch (e) {} renderTudo(); }
+    }
+    const agora = pacoteDados();
+    if (!igual(agora, base.dados)) {
+      const w = await chamarApi('/dados', 'PUT', { base: base.versao || 0, dados: agora });
+      if (w.conflito) { sincronizando = false; if (tentativa < 3) return sincronizarDados(manual, tentativa + 1); throw new Error('outro computador está gravando ao mesmo tempo'); }
+      gravarBaseSync(w.versao, agora);
+    }
+    syncEstado = { ok: true, em: new Date().toISOString(), erro: '' };
+    if (manual) toast(mudou ? 'Dados atualizados com o servidor.' : 'Dados em dia com o servidor.', 'ok');
+  } catch (e) {
+    syncEstado = { ok: false, em: syncEstado.em, erro: e.message };
+    if (manual) toast('Sincronização: ' + e.message, 'erro');
+  } finally {
+    sincronizando = false; pillSync();
+    if (syncDeNovo) { syncDeNovo = false; agendarSync(); }
+  }
+}
+setInterval(() => { if (!document.hidden && apiC().admin) sincronizarDados(false); }, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && apiC().admin) sincronizarDados(false); });
+$('#pill-sync').onclick = () => { if (apiC().admin) sincronizarDados(true); else { ir('api'); toast('Cole a chave de administrador para guardar os dados no servidor.'); } };
+
+/* =============================================================================
    FORNECEDORES
    ========================================================================== */
 let fornEd = null;
@@ -2284,6 +2633,7 @@ async function chamarApi(caminho, metodo = 'GET', corpo, semAuth){
   const r = await fetch(API_BASE + caminho, { method: metodo, headers: h, body: corpo !== undefined ? JSON.stringify(corpo) : undefined });
   const j = await r.json().catch(() => ({}));
   if (r.status === 401 && !semAuth) throw new Error('chave de administrador inválida');
+  if (r.status === 409 && j.versao != null) return { ...j, conflito: true };
   if (r.status >= 400) throw new Error(j.erro || 'HTTP ' + r.status);
   return j;
 }
@@ -2493,7 +2843,7 @@ $$('#ap-tabs .tab').forEach(b => b.onclick = () => { apAba = b.dataset.aba; rend
 $('#ap-criar-admin').onclick = async () => {
   try {
     const j = await chamarApi('/admin/setup', 'POST', {}, true);
-    apiC().admin = j.chave; salvar(); agendarCaixa(); enviarConfigServidor(); log('API do Compras ativada: chave de administrador criada e guardada neste navegador.');
+    apiC().admin = j.chave; salvar(); agendarCaixa(); enviarConfigServidor(); sincronizarDados(false); log('API do Compras ativada: chave de administrador criada e guardada neste navegador.');
     mostrarChave('Chave de administrador', 'Guardada neste navegador. Copie e guarde num lugar seguro: é ela que permite gerenciar as chaves em outro computador.', j.chave, '');
     renderApi();
   } catch (e) { toast(e.message, 'erro'); renderApi(); }
@@ -2501,7 +2851,7 @@ $('#ap-criar-admin').onclick = async () => {
 $('#ap-admin-salvar').onclick = async () => {
   const v = $('#ap-admin').value.trim(); if (!v) return;
   apiC().admin = v;
-  try { await chamarApi('/chaves'); salvar(); agendarCaixa(); await carregarConfigServidor(true); $('#ap-admin').value = ''; toast('Chave de administrador aceita.', 'ok'); renderApi(); }
+  try { await chamarApi('/chaves'); salvar(); agendarCaixa(); await carregarConfigServidor(true); sincronizarDados(true); $('#ap-admin').value = ''; toast('Chave de administrador aceita.', 'ok'); renderApi(); }
   catch (e) { apiC().admin = ''; toast(e.message, 'erro'); }
 };
 $('#ap-setor').onchange = e => { $('#ap-setor-outro').hidden = e.target.value !== 'outro'; };
@@ -2555,7 +2905,7 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-copi
    INÍCIO
    ========================================================================== */
 function exemplo(){
-  S = estadoVazio(); S.seq = 1002;
+  S = estadoVazio(); S.seq = 1002; S.semente = true;
   S.pedidos = [
     { id: uid(), num: 'PC-1001', fornecedor: 'Distribuidora Sul Ltda', itens: [{ sku: 'A100', nome: 'Papel A4 75g', qtd: 50, preco: 22.9, receb: 0 }, { sku: 'A250', nome: 'Caneta azul', qtd: 120, preco: 1.4, receb: 0 }],
       fin: 'Aprovado', log: 'Em trânsito', recebido: false, emissao: hoje(), previsao: somaDias(hoje(), 3) },
@@ -2579,7 +2929,8 @@ if (!EX) toast('estoque-xml.js não encontrado: a parte de Estoque precisa dele 
 sockConectar();
 if (est().autoSaldo !== false) { atualizarSaldoSilencioso(); agendarSaldo(); }
 if (fin().chave && fin().auto !== false) { sincronizarFin(false); agendarAvisos(); }
-if (apiC().admin) { lerCaixa(false); agendarCaixa(); carregarConfigServidor(false); }
+movimentacoesIniciais(); pillSync();
+if (apiC().admin) { lerCaixa(false); agendarCaixa(); carregarConfigServidor(false); sincronizarDados(false); }
 </script>
 </body>
 </html>

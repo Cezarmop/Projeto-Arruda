@@ -27,6 +27,8 @@ const ROTAS = [
   ['GET', 'v1/acessos', rAcessos, 'Últimos acessos com chave', 'painel'],
   ['GET', 'v1/config', rLerConfig, 'Configuração do painel (chaves das APIs externas, empresa)', 'painel'],
   ['POST', 'v1/config', rGravarConfig, 'Grava a configuração do painel', 'painel'],
+  ['GET', 'v1/dados', rLerDados, 'Dados do sistema (pedidos, fornecedores, movimentações...) com a versão', 'painel'],
+  ['PUT', 'v1/dados', rGravarDados, 'Grava os dados; recusa com 409 se a versão base não for a atual', 'painel'],
   ['POST', 'v1/publicacoes', rPublicar, 'Publica recebimento, previsão ou consulta para o Estoque', 'painel'],
   ['GET', 'v1/caixa-entrada', rCaixaEntrada, 'Mensagens recebidas dos setores (?desde=seq)', 'painel'],
   ['POST', 'v1/mensagens', rReceber, 'Recebe qualquer XML suportado (tipo pela raiz/namespace)', 'estoque, financeiro'],
@@ -114,6 +116,34 @@ async function rGravarConfig(req, res){
   atual.atualizadoEm = agora();
   await redis('SET', 'painel:config', JSON.stringify(atual));
   json(res, 200, { ok: true, atualizadoEm: atual.atualizadoEm });
+}
+
+// dados do sistema compartilhados entre computadores: um documento JSON com versão (controle otimista)
+const GRAVA_DADOS = `local v = tonumber(redis.call('GET', KEYS[1]) or '0')
+if v ~= tonumber(ARGV[1]) then return {0, v} end
+redis.call('SET', KEYS[2], ARGV[2]); redis.call('SET', KEYS[3], ARGV[3]); redis.call('SET', KEYS[1], v + 1)
+return {1, v + 1}`;
+async function rLerDados(req, res){
+  await autenticar(req, []);
+  // ?desde=N: se a versão ainda for N, responde só a versão (1 comando no banco em vez de 3)
+  const desde = req.query && req.query.desde != null ? Number(req.query.desde) : NaN;
+  if (Number.isInteger(desde)) {
+    const atual = Number(await redis('GET', 'dados:versao') || 0);
+    if (atual === desde) return json(res, 200, { versao: atual, igual: true });
+  }
+  const [v, d, em] = await pipeline([['GET', 'dados:versao'], ['GET', 'dados'], ['GET', 'dados:em']]);
+  json(res, 200, { versao: Number(v || 0), atualizadoEm: em || null, dados: d ? JSON.parse(d) : null });
+}
+async function rGravarDados(req, res){
+  await autenticar(req, []);
+  const corpo = await exigirJson(req);
+  if (!corpo.dados || typeof corpo.dados !== 'object' || Array.isArray(corpo.dados)) throw new ErroApi(422, 'Envie { base, dados }.');
+  const base = Number(corpo.base);
+  if (!Number.isInteger(base) || base < 0) throw new ErroApi(422, 'base deve ser a versão lida (número inteiro).');
+  const em = agora();
+  const [ok, versao] = await redis('EVAL', GRAVA_DADOS, '3', 'dados:versao', 'dados', 'dados:em', String(base), JSON.stringify(corpo.dados), em);
+  if (!ok) return json(res, 409, { ok: false, erro: 'Os dados mudaram em outro computador. Leia de novo e junte as mudanças.', versao: Number(versao) });
+  json(res, 200, { ok: true, versao: Number(versao), atualizadoEm: em });
 }
 
 async function rPublicar(req, res){
