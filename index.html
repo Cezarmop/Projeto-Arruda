@@ -251,7 +251,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
       <span class="grow"></span><span class="mut sm" id="fr-meta"></span>
     </div>
     <div class="scroll"><table>
-      <thead><tr><th>Pedido</th><th>Fornecedor</th><th>SKU</th><th>Produto</th><th>Recebido</th><th>Entrega</th><th style="width:240px">Receber</th></tr></thead>
+      <thead><tr><th>Pedido</th><th>Fornecedor</th><th>SKU</th><th>Produto</th><th>Recebido</th><th>Entrega</th><th>Pagamento</th><th style="width:240px">Receber</th></tr></thead>
       <tbody id="tb-receb"></tbody>
     </table></div>
     <div class="empty" id="em-receb" hidden><b>Nada a receber</b>Itens de pedidos em aberto aparecem aqui.</div>
@@ -1038,6 +1038,18 @@ function itensAReceber(){
   S.pedidos.forEach(p => p.itens.forEach((i, idx) => { if ((i.receb || 0) < i.qtd) rows.push({ p, i, idx }); }));
   return rows;
 }
+// situação do pagamento de um pedido, do ponto de vista do Financeiro
+function statusPagamento(p){
+  const venc = p.vencimento && isoOk(p.vencimento) ? 'Vence ' + fmtData(p.vencimento) : '';
+  const vencido = isoOk(p.vencimento) && p.vencimento < hoje();
+  const sub = t => t ? '<div class="sm ' + (vencido && !/Pago/.test(t) ? '' : 'mut') + '"' + (vencido && !/Pago/.test(t) ? ' style="color:var(--bad)"' : '') + '>' + esc(t) + '</div>' : '';
+  if (p.avisoFin === 'PAGO') return st('Pago', 'ok') + sub(p.pagoEm ? 'Pago em ' + fmtData(p.pagoEm) : 'Confirmado pelo Financeiro');
+  if (p.avisoFin === 'CANCELADO') return st('Cancelado', 'bad') + sub('Cancelado no Financeiro');
+  if (p.fin === 'Pago') return st('Pago', 'ok') + sub(p.pagoEm ? 'Pago em ' + fmtData(p.pagoEm) : '');
+  if (p.enviadoFin) return st('Aguardando Financeiro', 'info') + sub(vencido ? 'Vencido em ' + fmtData(p.vencimento) : venc);
+  if (p.finPendente) return st('Envio pendente', 'warn') + sub(venc);
+  return st(p.fin === 'Aprovado' ? 'Aprovado' : 'Não enviado', p.fin === 'Aprovado' ? 'info' : 'warn') + sub(venc);
+}
 function renderReceb(){
   const todos = itensAReceber(), q = chave(fr.q);
   const rows = todos.filter(({ p, i }) => contem(q, p.num, p.fornecedor, i.nome, i.sku));
@@ -1047,7 +1059,7 @@ function renderReceb(){
     const resto = i.qtd - (i.receb || 0);
     return `<tr>
       <td class="mono">${esc(p.num)}</td><td>${esc(p.fornecedor) || '—'}</td><td class="mono">${esc(i.sku) || '—'}</td><td>${esc(i.nome)}</td>
-      <td>${progresso(i.receb || 0, i.qtd)}</td><td>${entrega(p)}</td>
+      <td>${progresso(i.receb || 0, i.qtd)}</td><td>${entrega(p)}</td><td>${statusPagamento(p)}</td>
       <td><div class="row" style="gap:6px;flex-wrap:nowrap">
         <input class="rq" type="number" min="1" max="${resto}" value="${resto}" style="width:70px;height:28px" aria-label="Quantidade recebida">
         <button class="btn sm pri" data-rec="${p.id}:${idx}">Receber</button>
