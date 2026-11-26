@@ -129,6 +129,8 @@ dialog::backdrop{background:rgba(10,10,12,.45)}
 .item-h{font-size:12px;color:var(--muted)}
 .item button{all:unset;cursor:pointer;text-align:center;color:var(--muted);font-size:18px}
 .item button:hover{color:var(--bad)}
+.secreto{-webkit-text-security:disc;font-family:ui-monospace,Menlo,Consolas,monospace}
+.secreto:focus{-webkit-text-security:none}
 pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow:auto;max-height:60vh}
 
 /* settings */
@@ -372,7 +374,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
     <div class="card"><div class="sec">
       <h3>API do Estoque</h3>
       <label class="f">Endereço base<input id="api-url" type="url" placeholder="https://sistema-de-estoque-cyan.vercel.app"></label>
-      <label class="f">Chave de API (X-API-Key)<input id="api-key" type="password" autocomplete="off" placeholder="Cole a chave fornecida pelo Estoque"></label>
+      <label class="f">Chave de API (X-API-Key)<input id="api-key" type="text" class="secreto" autocomplete="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" placeholder="Cole a chave fornecida pelo Estoque"></label>
       <div class="row">
         <label class="row sm" style="gap:6px"><input type="checkbox" id="api-auto"> Buscar saldo automaticamente a cada</label>
         <select id="api-auto-min" style="height:28px"><option value="1">1 min</option><option value="2">2 min</option><option value="5">5 min</option><option value="15">15 min</option></select>
@@ -385,7 +387,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
     <h3>API do Financeiro (Finanweb)</h3>
     <div class="g2">
       <label class="f">Endereço base<input id="fin-url" type="url" placeholder="https://finanwebsistema.vercel.app/api/v1"></label>
-      <label class="f">Chave do setor compras (Bearer)<input id="fin-chave" type="password" autocomplete="off" placeholder="Cole a chave fornecida pelo Financeiro"></label>
+      <label class="f">Chave do setor compras (Bearer)<input id="fin-chave" type="text" class="secreto" autocomplete="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" placeholder="Cole a chave fornecida pelo Financeiro"></label>
     </div>
     <div class="row">
       <label class="row sm" style="gap:6px"><input type="checkbox" id="fin-auto"> Buscar pendências e avisos de pagamento automaticamente (a cada 5 min)</label>
@@ -448,7 +450,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
       <h3>Ativar a API</h3>
       <div class="mut" id="ap-setup-txt"></div>
       <div class="row" id="ap-setup-criar"><button class="btn pri" id="ap-criar-admin">Criar chave de administrador</button><span class="hint">Feito uma única vez. A chave fica neste navegador e dá acesso à gestão das chaves.</span></div>
-      <div class="row" id="ap-setup-colar" hidden><input id="ap-admin" type="password" autocomplete="off" placeholder="Chave de administrador" style="width:360px"><button class="btn pri" id="ap-admin-salvar">Usar esta chave</button></div>
+      <div class="row" id="ap-setup-colar" hidden><input id="ap-admin" type="text" class="secreto" autocomplete="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" placeholder="Chave de administrador" style="width:360px"><button class="btn pri" id="ap-admin-salvar">Usar esta chave</button></div>
     </div></div>
     <div class="card" id="ap-gestao" hidden>
       <div class="bar">
@@ -1838,7 +1840,7 @@ function renderIntegracoes(){
   $('#api-key').value = est().apiKey || '';
   const f = fin();
   $('#fin-url').value = f.url || FIN_PADRAO; $('#fin-chave').value = f.chave || ''; $('#fin-auto').checked = f.auto !== false;
-  $('#fin-status').textContent = !f.chave ? 'Sem chave' : f.erro ? 'Erro: ' + f.erro : f.ultimaBusca ? 'Última busca de avisos: ' + fmtDataHora(f.ultimaBusca) : '';
+  $('#fin-status').textContent = !f.chave ? (apiC().admin ? 'Sem chave' : 'Sem chave. Já configurou em outro navegador? Cole a chave de administrador em API e contratos.') : f.erro ? 'Erro: ' + f.erro : f.ultimaBusca ? 'Última busca de avisos: ' + fmtDataHora(f.ultimaBusca) : '';
   $('#api-auto').checked = est().autoSaldo !== false;
   $('#api-auto-min').value = String(est().autoSaldoMin || 2);
   $('#sock-url').value = S.socket.url; $('#sock-dest-fin').value = S.socket.destFin; $('#sock-dest-est').value = S.socket.destEst;
@@ -1849,7 +1851,7 @@ $('#cfg-salvar').onclick = () => {
   if (!empresa) return toast('Informe a empresa.', 'erro');
   if (!/^\d{14}$/.test(cnpj)) return toast('O CNPJ deve ter 14 dígitos.', 'erro');
   if (!usuario) return toast('Informe o usuário.', 'erro');
-  S.config = { empresa, cnpj, usuario }; log('Dados da empresa atualizados.'); salvar(); toast('Dados da empresa salvos.', 'ok');
+  S.config = { empresa, cnpj, usuario }; log('Dados da empresa atualizados.'); salvar(); enviarConfigServidor(); toast('Dados da empresa salvos.', 'ok');
 };
 $('#api-salvar').onclick = () => {
   const v = $('#api-url').value.trim().replace(/\/+$/, '');
@@ -1858,16 +1860,16 @@ $('#api-salvar').onclick = () => {
   if (/\/(contratos|integracoes|api)(\/|$)/i.test(v)) return toast('Use só o endereço base, sem /api.', 'erro');
   est().apiUrl = v === API_PADRAO ? '' : v;
   est().apiKey = $('#api-key').value.trim();
-  salvar(); agendarSaldo(); log('Estoque: API definida como ' + (v || API_PADRAO) + (est().apiKey ? ', com chave.' : ', sem chave.')); toast('Configuração da API salva.', 'ok');
+  salvar(); agendarSaldo(); enviarConfigServidor(); log('Estoque: API definida como ' + (v || API_PADRAO) + (est().apiKey ? ', com chave.' : ', sem chave.')); toast('Configuração da API salva.', 'ok');
 };
-$('#api-auto').onchange = e => { est().autoSaldo = e.target.checked; salvar(); agendarSaldo(); log('Estoque: busca automática do saldo ' + (e.target.checked ? 'ligada' : 'desligada') + '.'); if (e.target.checked) atualizarSaldoSilencioso(); };
-$('#api-auto-min').onchange = e => { est().autoSaldoMin = Number(e.target.value); salvar(); agendarSaldo(); };
+$('#api-auto').onchange = e => { est().autoSaldo = e.target.checked; salvar(); enviarConfigServidor(); agendarSaldo(); log('Estoque: busca automática do saldo ' + (e.target.checked ? 'ligada' : 'desligada') + '.'); if (e.target.checked) atualizarSaldoSilencioso(); };
+$('#api-auto-min').onchange = e => { est().autoSaldoMin = Number(e.target.value); salvar(); enviarConfigServidor(); agendarSaldo(); };
 $('#fin-salvar').onclick = () => {
   const v = $('#fin-url').value.trim().replace(/\/+$/, '');
   if (v && !/^https?:\/\/\S+$/i.test(v)) return toast('Use um endereço com http:// ou https://', 'erro');
   const f = fin(); f.url = v === FIN_PADRAO ? '' : v; f.chave = $('#fin-chave').value.trim(); f.auto = $('#fin-auto').checked; f.erro = '';
-  salvar(); agendarAvisos(); log('Financeiro: API configurada' + (f.chave ? ' com chave.' : ' sem chave.'));
-  toast('Configuração do Financeiro salva.', 'ok'); renderIntegracoes();
+  salvar(); agendarAvisos(); enviarConfigServidor(); log('Financeiro: API configurada' + (f.chave ? ' com chave.' : ' sem chave.'));
+  toast('Configuração do Financeiro salva.', 'ok'); $('#fin-status').textContent = f.chave ? 'Chave salva' : 'Sem chave';
   if (f.chave && f.auto !== false) sincronizarFin(false);
 };
 $('#fin-testar').onclick = async () => {
@@ -2148,6 +2150,36 @@ async function lerCaixa(manual){
   } catch (e) { if (manual) toast('Caixa de entrada: ' + e.message, 'erro'); }
   finally { lendoCaixa = false; }
 }
+/* --- configuração guardada no servidor (só a chave de administrador lê e grava) ---
+   Assim as chaves do Financeiro e do Estoque e os dados da empresa não somem ao trocar de navegador. */
+function pacoteConfig(){
+  const f = fin(), e = est();
+  return { fin: { url: f.url, chave: f.chave, auto: f.auto !== false }, estoque: { apiUrl: e.apiUrl, apiKey: e.apiKey || '', autoSaldo: e.autoSaldo !== false, autoSaldoMin: e.autoSaldoMin || 2 }, config: { ...S.config } };
+}
+async function enviarConfigServidor(){
+  if (!apiC().admin) return;
+  try { const j = await chamarApi('/config', 'POST', pacoteConfig()); apiC().configEm = j.atualizadoEm; salvar(); }
+  catch (e) { log('API do Compras: configuração não guardada no servidor: ' + e.message); }
+}
+async function carregarConfigServidor(avisar){
+  if (!apiC().admin) return;
+  try {
+    const c = (await chamarApi('/config')).config || {};
+    if (!c.atualizadoEm) { enviarConfigServidor(); return; }          // servidor vazio: sobe o que existe aqui
+    if (apiC().configEm && c.atualizadoEm <= apiC().configEm) return;   // este navegador já está em dia
+    const f = fin(), e = est();
+    if (c.fin) { if (c.fin.chave) f.chave = c.fin.chave; if ('url' in c.fin) f.url = c.fin.url || ''; if ('auto' in c.fin) f.auto = c.fin.auto; }
+    if (c.estoque) { if ('apiUrl' in c.estoque) e.apiUrl = c.estoque.apiUrl || ''; if (c.estoque.apiKey) e.apiKey = c.estoque.apiKey;
+      if ('autoSaldo' in c.estoque) e.autoSaldo = c.estoque.autoSaldo; if (c.estoque.autoSaldoMin) e.autoSaldoMin = c.estoque.autoSaldoMin; }
+    if (c.config && c.config.empresa) S.config = { empresa: c.config.empresa, cnpj: c.config.cnpj, usuario: c.config.usuario };
+    apiC().configEm = c.atualizadoEm; salvar();
+    agendarSaldo(); agendarAvisos();
+    if (f.chave && f.auto !== false) sincronizarFin(false);
+    log('Configuração carregada do servidor (chaves e dados da empresa).');
+    if (avisar) toast('Configuração carregada do servidor.', 'ok');
+    renderTudo();
+  } catch (e) { if (avisar) toast('Configuração do servidor: ' + e.message, 'erro'); }
+}
 function agendarCaixa(){
   clearInterval(timerCaixa); timerCaixa = null;
   if (!apiC().admin) return;
@@ -2242,7 +2274,7 @@ $$('#ap-tabs .tab').forEach(b => b.onclick = () => { apAba = b.dataset.aba; rend
 $('#ap-criar-admin').onclick = async () => {
   try {
     const j = await chamarApi('/admin/setup', 'POST', {}, true);
-    apiC().admin = j.chave; salvar(); agendarCaixa(); log('API do Compras ativada: chave de administrador criada e guardada neste navegador.');
+    apiC().admin = j.chave; salvar(); agendarCaixa(); enviarConfigServidor(); log('API do Compras ativada: chave de administrador criada e guardada neste navegador.');
     mostrarChave('Chave de administrador', 'Guardada neste navegador. Copie e guarde num lugar seguro: é ela que permite gerenciar as chaves em outro computador.', j.chave, '');
     renderApi();
   } catch (e) { toast(e.message, 'erro'); renderApi(); }
@@ -2250,7 +2282,7 @@ $('#ap-criar-admin').onclick = async () => {
 $('#ap-admin-salvar').onclick = async () => {
   const v = $('#ap-admin').value.trim(); if (!v) return;
   apiC().admin = v;
-  try { await chamarApi('/chaves'); salvar(); agendarCaixa(); $('#ap-admin').value = ''; toast('Chave de administrador aceita.', 'ok'); renderApi(); }
+  try { await chamarApi('/chaves'); salvar(); agendarCaixa(); await carregarConfigServidor(true); $('#ap-admin').value = ''; toast('Chave de administrador aceita.', 'ok'); renderApi(); }
   catch (e) { apiC().admin = ''; toast(e.message, 'erro'); }
 };
 $('#ap-setor').onchange = e => { $('#ap-setor-outro').hidden = e.target.value !== 'outro'; };
@@ -2328,7 +2360,7 @@ if (!EX) toast('estoque-xml.js não encontrado: a parte de Estoque precisa dele 
 sockConectar();
 if (est().autoSaldo !== false) { atualizarSaldoSilencioso(); agendarSaldo(); }
 if (fin().chave && fin().auto !== false) { sincronizarFin(false); agendarAvisos(); }
-if (apiC().admin) { lerCaixa(false); agendarCaixa(); }
+if (apiC().admin) { lerCaixa(false); agendarCaixa(); carregarConfigServidor(false); }
 </script>
 </body>
 </html>

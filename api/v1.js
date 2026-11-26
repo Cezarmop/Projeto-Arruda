@@ -139,6 +139,8 @@ const ROTAS = [
   ['POST', 'v1/chaves', rCriarChave, 'Cria a chave de um setor; a chave aparece só nesta resposta', 'painel'],
   ['DELETE', 'v1/chaves/{id}', rRevogarChave, 'Revoga uma chave', 'painel'],
   ['GET', 'v1/acessos', rAcessos, 'Últimos acessos com chave', 'painel'],
+  ['GET', 'v1/config', rLerConfig, 'Configuração do painel (chaves das APIs externas, empresa)', 'painel'],
+  ['POST', 'v1/config', rGravarConfig, 'Grava a configuração do painel', 'painel'],
   ['POST', 'v1/publicacoes', rPublicar, 'Publica recebimento, previsão ou consulta para o Estoque', 'painel'],
   ['GET', 'v1/caixa-entrada', rCaixaEntrada, 'Mensagens recebidas dos setores (?desde=seq)', 'painel'],
   ['POST', 'v1/mensagens', rReceber, 'Recebe qualquer XML suportado (tipo pela raiz/namespace)', 'estoque, financeiro'],
@@ -204,6 +206,27 @@ async function rAcessos(req, res){
   await autenticar(req, []);
   const l = await redis('LRANGE', 'acessos', 0, 199) || [];
   json(res, 200, { acessos: l.map(x => JSON.parse(x)) });
+}
+
+// configuração do painel: só a chave de administrador lê e grava (ex.: chave do Finanweb, chave do Estoque, dados da empresa)
+const CONFIG_PERMITIDA = { fin: ['url', 'chave', 'auto'], estoque: ['apiUrl', 'apiKey', 'autoSaldo', 'autoSaldoMin'], config: ['empresa', 'cnpj', 'usuario'] };
+async function rLerConfig(req, res){
+  await autenticar(req, []);
+  const v = await redis('GET', 'painel:config');
+  json(res, 200, { config: v ? JSON.parse(v) : {} });
+}
+async function rGravarConfig(req, res){
+  await autenticar(req, []);
+  const d = await exigirJson(req);
+  const atual = JSON.parse(await redis('GET', 'painel:config') || '{}');
+  for (const [grupo, campos] of Object.entries(CONFIG_PERMITIDA)) {
+    if (!d[grupo] || typeof d[grupo] !== 'object') continue;
+    atual[grupo] = atual[grupo] || {};
+    for (const c of campos) if (c in d[grupo]) atual[grupo][c] = typeof d[grupo][c] === 'string' ? d[grupo][c].slice(0, 300) : d[grupo][c];
+  }
+  atual.atualizadoEm = agora();
+  await redis('SET', 'painel:config', JSON.stringify(atual));
+  json(res, 200, { ok: true, atualizadoEm: atual.atualizadoEm });
 }
 
 async function rPublicar(req, res){
