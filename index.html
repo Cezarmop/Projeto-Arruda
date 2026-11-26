@@ -711,6 +711,15 @@ function carregar(){
   try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) { S = Object.assign(estadoVazio(), JSON.parse(raw)); return true; } } catch (e) {}
   return false;
 }
+// Várias abas abertas: quando outra aba grava, esta passa a usar a versão nova em vez de sobrescrever com dados antigos.
+window.addEventListener('storage', e => {
+  if (e.key !== STORAGE_KEY || !e.newValue) return;
+  try {
+    S = Object.assign(estadoVazio(), JSON.parse(e.newValue)); est(); fin(); apiC();
+    const digitando = document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+    if (!digitando) renderTudo(); else contadores();
+  } catch (err) {}
+});
 function est(){
   const s = S.estoque = S.estoque || {};
   s.apiUrl = s.apiUrl || ''; s.saldo = s.saldo || null; s.entradas = s.entradas || [];
