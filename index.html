@@ -1,0 +1,1790 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compras</title>
+<style>
+:root{
+  --bg:#f6f6f7; --surface:#fff; --line:#e7e7ea; --line2:#f0f0f2;
+  --text:#18181b; --muted:#71717a; --faint:#a1a1aa;
+  --accent:#2563eb; --accent-tx:#fff; --accent-soft:#eff4ff;
+  --ok:#16a34a; --warn:#d97706; --bad:#dc2626; --info:#2563eb; --neutral:#a1a1aa;
+  --r:10px; --shadow:0 1px 2px rgba(0,0,0,.04);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#0f0f11; --surface:#17171a; --line:#2a2a2f; --line2:#202024;
+    --text:#ececef; --muted:#9a9aa3; --faint:#62626b; --accent:#5b8cff; --accent-soft:#1b2540;
+    --ok:#22c55e; --warn:#f59e0b; --bad:#f87171; --info:#5b8cff; color-scheme:dark; }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--accent)}
+[hidden]{display:none!important}
+
+/* layout */
+.app{display:grid;grid-template-columns:210px 1fr;min-height:100vh}
+.side{position:sticky;top:0;height:100vh;padding:20px 12px;border-right:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:2px}
+.logo{font-weight:650;font-size:15px;padding:4px 10px 18px;letter-spacing:-.01em}
+.logo small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.nav{all:unset;display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;color:var(--muted);cursor:pointer}
+.nav:hover{background:var(--line2);color:var(--text)}
+.nav.on{background:var(--accent-soft);color:var(--accent);font-weight:550}
+.nav .n{font-size:11px;min-width:18px;text-align:center;padding:0 6px;border-radius:9px;background:var(--line);color:var(--text)}
+.side-foot{margin-top:auto;padding:10px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+main{padding:28px 32px 60px;max-width:1240px;width:100%}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+h1{font-size:22px;font-weight:650;letter-spacing:-.02em;margin:0}
+.sub{color:var(--muted);margin-top:2px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grow{flex:1}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--faint)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-tx)}
+.btn.pri:hover{filter:brightness(1.07)}
+.btn.sm{height:28px;padding:0 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+.link{all:unset;cursor:pointer;color:var(--accent);font-size:13px}
+.link:hover{text-decoration:underline}
+.link.bad{color:var(--bad)}
+.link.mut{color:var(--muted)}
+
+/* inputs */
+input,select{height:34px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);min-width:0}
+input:focus,select:focus,.btn:focus-visible,.nav:focus-visible{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+input[type=checkbox]{height:auto;width:16px;height:16px;accent-color:var(--accent)}
+input.search{width:280px}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+label.f input,label.f select{color:var(--text)}
+.hint{font-size:12px;color:var(--muted)}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.stat b{display:block;font-size:20px;font-weight:650;letter-spacing:-.02em}
+.stat span{color:var(--muted);font-size:12px}
+.stat.warn b{color:var(--warn)} .stat.bad b{color:var(--bad)}
+
+/* card + table */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.card+.card{margin-top:14px}
+.bar{display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.note{padding:10px 14px;border-bottom:1px solid var(--line);color:var(--muted);font-size:13px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--line2)}
+.r{text-align:right}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.mut{color:var(--muted)} .sm{font-size:12px}
+.acts{display:flex;gap:12px;justify-content:flex-end;align-items:center}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--text);font-weight:550;margin-bottom:2px}
+
+/* status dot */
+.st{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.st::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c,var(--neutral))}
+.st.ok{--c:var(--ok)} .st.warn{--c:var(--warn)} .st.bad{--c:var(--bad)} .st.info{--c:var(--info)}
+
+/* progress */
+.prog{display:flex;align-items:center;gap:8px}
+.prog i{display:block;width:60px;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.prog i::after{content:"";display:block;height:100%;width:var(--p);background:var(--accent)}
+.prog i.done::after{background:var(--ok)}
+
+/* tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tab{all:unset;cursor:pointer;padding:8px 12px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--text);border-color:var(--accent);font-weight:550}
+.tab .n{color:var(--faint);font-size:12px;margin-left:4px}
+
+/* menu */
+.menu{position:relative}
+.menu-list{position:absolute;right:0;top:calc(100% + 4px);z-index:20;min-width:240px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:4px}
+.menu-list button{all:unset;display:block;width:100%;box-sizing:border-box;padding:8px 10px;border-radius:6px;cursor:pointer}
+.menu-list button:hover{background:var(--line2)}
+.menu-list small{display:block;color:var(--muted);font-size:12px}
+
+/* dialog */
+dialog{border:1px solid var(--line);border-radius:14px;padding:0;background:var(--surface);color:var(--text);width:min(520px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog.lg{width:min(860px,96vw)}
+dialog::backdrop{background:rgba(10,10,12,.45)}
+.dh{display:flex;justify-content:space-between;align-items:center;padding:16px 20px 0}
+.dh h2{margin:0;font-size:16px;font-weight:600}
+.db{padding:16px 20px;display:flex;flex-direction:column;gap:12px;max-height:70vh;overflow:auto}
+.df{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid var(--line)}
+.x{all:unset;cursor:pointer;font-size:20px;line-height:1;color:var(--muted);padding:2px 6px;border-radius:6px}
+.x:hover{background:var(--line2)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.items{display:flex;flex-direction:column;gap:6px}
+.item{display:grid;grid-template-columns:110px 1fr 70px 100px 26px;gap:6px}
+.item-h{font-size:12px;color:var(--muted)}
+.item button{all:unset;cursor:pointer;text-align:center;color:var(--muted);font-size:18px}
+.item button:hover{color:var(--bad)}
+pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);border-radius:8px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow:auto;max-height:60vh}
+
+/* settings */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.sec{padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.sec h3{margin:0;font-size:14px;font-weight:600}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;padding:2px 8px;border:1px solid var(--line);border-radius:12px;color:var(--muted);text-decoration:none}
+
+/* toast */
+.toasts{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:100}
+.toast{max-width:380px;padding:10px 14px;border-radius:10px;background:var(--text);color:var(--bg);font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;transform:translateY(6px);transition:.2s}
+.toast.on{opacity:1;transform:none}
+.toast.erro{background:var(--bad);color:#fff}
+.toast.ok{background:var(--ok);color:#fff}
+
+/* mobile */
+.topbar{display:none}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;z-index:50;left:0;width:240px;transform:translateX(-100%);transition:.2s}
+  body.nav-open .side{transform:none;box-shadow:0 0 40px rgba(0,0,0,.3)}
+  .topbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:40}
+  main{padding:20px 16px 60px}
+  input.search{width:100%}
+  .grid2,.g2{grid-template-columns:1fr}
+  .item{grid-template-columns:1fr 1fr 60px 80px 24px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar"><button class="btn sm" id="burger" aria-label="Abrir menu">☰</button><b>Compras</b></div>
+
+<div class="app">
+<aside class="side" aria-label="Menu">
+  <div class="logo">Compras<small>Controle de compras</small></div>
+  <button class="nav on" data-view="pedidos">Pedidos <span class="n" id="n-pedidos" hidden></span></button>
+  <button class="nav" data-view="recebimentos">Recebimentos <span class="n" id="n-receb" hidden></span></button>
+  <button class="nav" data-view="estoque">Estoque <span class="n" id="n-estoque" hidden></span></button>
+  <button class="nav" data-view="financeiro">Financeiro</button>
+  <button class="nav" data-view="fornecedores">Fornecedores</button>
+  <button class="nav" data-view="integracoes">Integrações</button>
+  <button class="nav" data-view="atividade">Atividade</button>
+  <div class="side-foot">
+    <span class="st" id="pill-sock">Socket desconectado</span>
+  </div>
+</aside>
+
+<main>
+<!-- ============ PEDIDOS ============ -->
+<section id="v-pedidos">
+  <div class="head">
+    <div><h1>Pedidos</h1><div class="sub">Do pedido ao pagamento e à entrega.</div></div>
+    <div class="row">
+      <div class="menu">
+        <button class="btn" data-menu>CSV ▾</button>
+        <div class="menu-list" hidden>
+          <button id="csv-importar">Importar CSV do Estoque<small>SKU; Nome; Quantidade; Preço; Fornecedor</small></button>
+          <button id="csv-modelo">Baixar modelo</button>
+          <button id="csv-exportar">Exportar pedidos</button>
+        </div>
+      </div>
+      <button class="btn pri" id="ped-novo">Novo pedido</button>
+    </div>
+  </div>
+  <div class="stats" id="st-pedidos"></div>
+  <div class="card">
+    <div class="bar">
+      <input class="search" id="fp-q" type="search" placeholder="Buscar nº, fornecedor ou produto">
+      <select id="fp-fin"><option value="">Financeiro</option><option>Pendente</option><option>Aprovado</option><option>Pago</option></select>
+      <select id="fp-log"><option value="">Logística</option><option>Aguardando</option><option>Em trânsito</option><option>Parcial</option><option>Recebido</option></select>
+      <span class="grow"></span><span class="mut sm" id="fp-meta"></span>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th>Nº</th><th>Fornecedor</th><th class="r">Valor</th><th>Recebido</th><th>Entrega</th><th>Financeiro</th><th>Logística</th><th></th></tr></thead>
+      <tbody id="tb-pedidos"></tbody>
+    </table></div>
+    <div class="empty" id="em-pedidos" hidden><b>Nenhum pedido</b><span id="em-pedidos-t">Crie um pedido ou importe o CSV do Estoque.</span></div>
+  </div>
+</section>
+
+<!-- ============ RECEBIMENTOS ============ -->
+<section id="v-recebimentos" hidden>
+  <div class="head">
+    <div><h1>Recebimentos</h1><div class="sub">Dê baixa no que chegou. Parcial é permitido.</div></div>
+    <div class="row">
+      <div class="menu">
+        <button class="btn" data-menu>Exportar ▾</button>
+        <div class="menu-list" hidden>
+          <button id="rec-csv">Entrada p/ Estoque (CSV)<small>Produto;Quantidade, total recebido</small></button>
+          <button id="rec-sock">Entrada p/ Estoque via socket<small>Mesmo conteúdo em JSON</small></button>
+        </div>
+      </div>
+      <button class="btn pri" id="rec-enviar">Enviar pendentes ao Estoque</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="bar">
+      <input class="search" id="fr-q" type="search" placeholder="Buscar pedido, fornecedor ou produto">
+      <label class="row sm" style="gap:6px"><input type="checkbox" id="fr-auto"> Dar entrada no saldo do Estoque ao receber</label>
+      <span class="grow"></span><span class="mut sm" id="fr-meta"></span>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th>Pedido</th><th>Fornecedor</th><th>SKU</th><th>Produto</th><th>Recebido</th><th>Entrega</th><th style="width:240px">Receber</th></tr></thead>
+      <tbody id="tb-receb"></tbody>
+    </table></div>
+    <div class="empty" id="em-receb" hidden><b>Nada a receber</b>Itens de pedidos em aberto aparecem aqui.</div>
+  </div>
+</section>
+
+<!-- ============ ESTOQUE ============ -->
+<section id="v-estoque" hidden>
+  <div class="head">
+    <div><h1>Estoque</h1><div class="sub">Saldo, entregas previstas, entradas e disponibilidade.</div></div>
+    <div class="row">
+      <button class="btn" id="est-buscar">Buscar saldo (API)</button>
+      <button class="btn" id="est-importar">Importar XML</button>
+      <button class="btn" id="est-prev">Enviar previsões</button>
+      <button class="btn pri" id="est-enviar">Enviar entradas</button>
+    </div>
+  </div>
+  <div class="stats" id="st-estoque"></div>
+  <div class="tabs" id="est-tabs">
+    <button class="tab on" data-aba="saldo">Saldo<span class="n" id="c-saldo"></span></button>
+    <button class="tab" data-aba="previsoes">Entregas previstas<span class="n" id="c-prev"></span></button>
+    <button class="tab" data-aba="entradas">Entradas<span class="n" id="c-ent"></span></button>
+    <button class="tab" data-aba="consultas">Disponibilidade<span class="n" id="c-cons"></span></button>
+  </div>
+
+  <div class="card" id="aba-saldo">
+    <div class="bar">
+      <input class="search" id="es-q" type="search" placeholder="Buscar SKU ou produto">
+      <select id="es-sit"><option value="">Situação</option><option value="falta">Sem saldo</option><option value="baixo">No mínimo ou abaixo</option><option value="ok">Normal</option></select>
+      <span class="grow"></span>
+      <button class="btn sm" id="es-baixos">Selecionar abaixo do mínimo</button>
+      <button class="btn sm pri" id="es-pedir" disabled>Criar pedido</button>
+    </div>
+    <div class="note" id="es-meta" hidden></div>
+    <div class="scroll"><table>
+      <thead><tr><th style="width:32px"><input type="checkbox" id="es-all" aria-label="Selecionar todos"></th><th>SKU</th><th>Produto</th><th class="r">Saldo</th><th class="r">Mínimo</th><th class="r">Preço</th><th>Situação</th></tr></thead>
+      <tbody id="tb-saldo"></tbody>
+    </table></div>
+    <div class="empty" id="em-saldo" hidden><b id="em-saldo-t">Saldo não carregado</b><span id="em-saldo-p">Busque pela API, importe o XML do Estoque ou aguarde o socket.</span></div>
+  </div>
+
+  <div class="card" id="aba-previsoes" hidden>
+    <div class="scroll"><table>
+      <thead><tr><th>Pedido</th><th>Fornecedor</th><th class="r">A chegar</th><th>Previsão</th><th>Logística</th><th></th></tr></thead>
+      <tbody id="tb-prev"></tbody>
+    </table></div>
+    <div class="empty" id="em-prev" hidden><b>Nenhuma entrega prevista</b>Todos os pedidos foram recebidos.</div>
+  </div>
+
+  <div class="card" id="aba-entradas" hidden>
+    <div class="bar">
+      <select id="ee-filtro"><option value="">Todas</option><option value="pendente">Não enviadas</option><option value="enviada">Enviadas</option><option value="divergente">Com divergência ou rejeitadas</option></select>
+      <span class="grow"></span><span class="mut sm" id="ee-meta"></span>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th>Recebido em</th><th>Pedido</th><th>SKU</th><th>Produto</th><th class="r">Qtde</th><th>Tipo</th><th>Envio</th><th>Retorno do Estoque</th></tr></thead>
+      <tbody id="tb-ent"></tbody>
+    </table></div>
+    <div class="empty" id="em-ent" hidden><b>Nenhuma entrada</b>Cada baixa em Recebimentos vira uma entrada aqui.</div>
+  </div>
+
+  <div class="card" id="aba-consultas" hidden>
+    <div class="bar">
+      <input id="dc-sku" list="dl-skus" placeholder="Código do produto, ex.: A100" style="width:260px" autocomplete="off">
+      <datalist id="dl-skus"></datalist>
+      <button class="btn pri" id="dc-socket">Consultar via socket</button>
+      <button class="btn" id="dc-baixar">Baixar XML</button>
+      <span class="grow"></span><span class="mut sm" id="dc-meta"></span>
+    </div>
+    <div class="note">Pergunta ao Estoque quantas unidades existem, sem reservar saldo. A resposta entra pelo socket ou por Importar XML.</div>
+    <div class="scroll"><table>
+      <thead><tr><th>Consulta</th><th>Produto</th><th>Enviada</th><th>Disponível</th><th></th></tr></thead>
+      <tbody id="tb-cons"></tbody>
+    </table></div>
+    <div class="empty" id="em-cons" hidden><b>Nenhuma consulta</b>Consulte a disponibilidade antes de comprar.</div>
+  </div>
+</section>
+
+<!-- ============ FINANCEIRO ============ -->
+<section id="v-financeiro" hidden>
+  <div class="head">
+    <div><h1>Financeiro</h1><div class="sub">Pedidos como contas a pagar e pendências com fornecedores (contratos Finanweb).</div></div>
+    <div class="row">
+      <div class="menu">
+        <button class="btn" data-menu>Contas a pagar ▾</button>
+        <div class="menu-list" hidden>
+          <button id="fin-saida-sock">Enviar via socket<small>saida-v2 para o Financeiro</small></button>
+          <button id="fin-saida">Baixar XML<small>saida-v2 com os pedidos como despesas</small></button>
+        </div>
+      </div>
+      <button class="btn" id="fin-consulta">Consultar pendências</button>
+      <button class="btn pri" id="fin-resposta">Importar resposta</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="note" id="fin-resumo"></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Referência</th><th>Fornecedor</th><th>CPF/CNPJ</th><th>Categoria</th><th class="r">Valor</th><th>Vencimento</th><th>Situação</th></tr></thead>
+      <tbody id="tb-fin"></tbody>
+    </table></div>
+    <div class="empty" id="em-fin" hidden><b>Nenhuma pendência carregada</b>Consulte as pendências e importe a resposta do Financeiro.</div>
+  </div>
+</section>
+
+<!-- ============ FORNECEDORES ============ -->
+<section id="v-fornecedores" hidden>
+  <div class="head">
+    <div><h1>Fornecedores</h1><div class="sub">Usado em 2 pedidos ou mais, vira cadastro automaticamente.</div></div>
+    <button class="btn pri" id="forn-novo">Novo fornecedor</button>
+  </div>
+  <div class="card">
+    <div class="scroll"><table>
+      <thead><tr><th>Nome</th><th>CPF/CNPJ</th><th>Contato</th><th class="r">Pedidos</th><th>Situação</th><th></th></tr></thead>
+      <tbody id="tb-forn"></tbody>
+    </table></div>
+    <div class="empty" id="em-forn" hidden><b>Nenhum fornecedor</b>Cadastre um ou crie pedidos.</div>
+  </div>
+</section>
+
+<!-- ============ INTEGRAÇÕES ============ -->
+<section id="v-integracoes" hidden>
+  <div class="head"><div><h1>Integrações</h1><div class="sub">Dados da empresa, API do Estoque e ponte do socket.</div></div></div>
+  <div class="grid2">
+    <div class="card"><div class="sec">
+      <h3>Empresa</h3>
+      <label class="f">Razão social<input id="cfg-empresa" placeholder="Empresa LTDA"></label>
+      <div class="g2">
+        <label class="f">CNPJ<input id="cfg-cnpj" placeholder="00.000.000/0000-00"></label>
+        <label class="f">Usuário<input id="cfg-usuario" placeholder="maria.compras"></label>
+      </div>
+      <div class="row"><span class="hint grow">Vai no cabeçalho dos XMLs do Financeiro e do Estoque.</span><button class="btn sm pri" id="cfg-salvar">Salvar</button></div>
+    </div></div>
+    <div class="card"><div class="sec">
+      <h3>API do Estoque</h3>
+      <label class="f">Endereço base<input id="api-url" type="url" placeholder="https://sistema-de-estoque-cyan.vercel.app"></label>
+      <div class="hint">GET /api/xml para o saldo; POST /api/xml/validar e /api/xml para dar entrada. Com a ponte aberta, a chamada passa por ela (sem CORS).</div>
+      <div class="row"><span class="grow"></span><button class="btn sm" id="api-testar">Testar</button><button class="btn sm pri" id="api-salvar">Salvar</button></div>
+    </div></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <div class="sec">
+      <div class="row"><h3 class="grow">Socket (ponte-socket.js)</h3><span class="st" id="sock-status">Desconectado</span></div>
+      <div class="row">
+        <input id="sock-url" placeholder="http://localhost:8787" style="width:240px">
+        <button class="btn pri" id="sock-conectar">Conectar</button>
+        <button class="btn" id="sock-desconectar">Desconectar</button>
+        <span class="grow"></span><span class="mut sm" id="sock-ver"></span>
+      </div>
+      <div class="row">
+        <label class="f" style="flex-direction:row;align-items:center;gap:6px">Financeiro<input id="sock-dest-fin" placeholder="#finanweb" style="width:150px"></label>
+        <label class="f" style="flex-direction:row;align-items:center;gap:6px">Estoque<input id="sock-dest-est" placeholder="#sistema-de-estoque" style="width:190px"></label>
+        <button class="btn sm" id="sock-dest-salvar">Salvar destinos</button>
+        <span class="grow"></span>
+        <button class="btn sm" id="sock-lista">Atualizar IDs</button>
+      </div>
+      <div class="chips" id="sock-dir"></div>
+    </div>
+    <div class="bar" style="border-top:1px solid var(--line)">
+      <input id="sock-msg" class="grow" placeholder="Mensagem livre (uma linha), ex.: /lista">
+      <button class="btn" id="sock-enviar">Enviar</button>
+      <button class="link mut" id="sock-limpar">Limpar</button>
+    </div>
+    <div class="scroll" style="max-height:340px;overflow:auto"><table>
+      <thead><tr><th style="width:90px">Hora</th><th style="width:90px">Direção</th><th>Mensagem</th></tr></thead>
+      <tbody id="tb-sock"></tbody>
+    </table></div>
+    <div class="empty" id="em-sock" hidden>Inicie a ponte no seu computador e clique em Conectar.</div>
+  </div>
+</section>
+
+<!-- ============ ATIVIDADE ============ -->
+<section id="v-atividade" hidden>
+  <div class="head"><div><h1>Atividade</h1><div class="sub">Histórico de XML e trilha de auditoria.</div></div></div>
+  <div class="tabs" id="at-tabs">
+    <button class="tab on" data-aba="xml">Histórico XML<span class="n" id="c-hist"></span></button>
+    <button class="tab" data-aba="logs">Logs<span class="n" id="c-logs"></span></button>
+  </div>
+  <div class="card" id="at-xml">
+    <div class="bar">
+      <input class="search" id="hx-q" type="search" placeholder="Buscar mensagem, referência ou conteúdo">
+      <select id="hx-sis"><option value="">Sistema</option><option>Estoque</option><option>Financeiro</option></select>
+      <select id="hx-dir"><option value="">Direção</option><option value="enviado">Enviados</option><option value="recebido">Recebidos</option></select>
+      <span class="grow"></span><button class="link bad" id="hx-limpar">Limpar</button>
+    </div>
+    <div class="note">Contratos: <span class="chips" id="hx-xsds" style="display:inline-flex"></span></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Data</th><th>Direção</th><th>Mensagem</th><th>Via</th><th>Resultado</th><th></th></tr></thead>
+      <tbody id="tb-hist"></tbody>
+    </table></div>
+    <div class="empty" id="em-hist" hidden><b>Nenhum XML registrado</b>Tudo o que é enviado ou recebido aparece aqui.</div>
+  </div>
+  <div class="card" id="at-logs" hidden>
+    <div class="bar">
+      <input class="search" id="fl-q" type="search" placeholder="Buscar nos logs">
+      <span class="grow"></span><button class="link bad" id="logs-limpar">Limpar</button>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th style="width:170px">Data/hora</th><th>Evento</th></tr></thead>
+      <tbody id="tb-logs"></tbody>
+    </table></div>
+    <div class="empty" id="em-logs" hidden>Sem eventos.</div>
+  </div>
+</section>
+</main>
+</div>
+
+<!-- ============ DIALOGS ============ -->
+<dialog id="dlg-pedido" class="lg">
+  <div class="dh"><h2 id="pd-titulo">Novo pedido</h2><button class="x" data-close aria-label="Fechar">×</button></div>
+  <div class="db">
+    <label class="f">Fornecedor<input id="pd-forn" list="dl-forn" placeholder="Digite ou selecione" autocomplete="off"></label>
+    <datalist id="dl-forn"></datalist>
+    <div>
+      <div class="item item-h"><span>SKU</span><span>Produto</span><span>Qtde</span><span>Preço un.</span><span></span></div>
+      <div class="items" id="pd-itens"></div>
+      <button class="btn sm" id="pd-add" style="margin-top:8px">+ Item</button>
+    </div>
+    <div class="g2">
+      <label class="f">Situação financeira<select id="pd-fin"><option>Pendente</option><option>Aprovado</option><option>Pago</option></select></label>
+      <label class="f">Situação logística<select id="pd-log"><option>Aguardando</option><option>Em trânsito</option><option>Parcial</option><option>Recebido</option></select></label>
+      <label class="f">Categoria<input id="pd-cat" list="dl-cat" placeholder="Mercadorias"></label>
+      <label class="f">Forma de pagamento<select id="pd-pag"><option>Boleto</option><option>Pix</option><option>Transferência</option><option>Cartão</option><option>Dinheiro</option></select></label>
+      <label class="f">Vencimento<input id="pd-venc" type="date"></label>
+      <label class="f">Previsão de entrega<input id="pd-prev" type="date"></label>
+    </div>
+    <datalist id="dl-cat"><option value="Mercadorias"><option value="Material de escritório"><option value="Limpeza"><option value="Serviços"></datalist>
+  </div>
+  <div class="df"><b id="pd-total">R$ 0,00</b><div class="row"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="pd-salvar">Salvar</button></div></div>
+</dialog>
+
+<dialog id="dlg-forn">
+  <div class="dh"><h2 id="fn-titulo">Novo fornecedor</h2><button class="x" data-close aria-label="Fechar">×</button></div>
+  <div class="db">
+    <label class="f">Nome / razão social<input id="fn-nome"></label>
+    <label class="f">CPF/CNPJ<input id="fn-doc" placeholder="Obrigatório para o Financeiro"></label>
+    <label class="f">Contato<input id="fn-contato" placeholder="Telefone, e-mail ou responsável"></label>
+  </div>
+  <div class="df"><span></span><div class="row"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="fn-salvar">Salvar</button></div></div>
+</dialog>
+
+<dialog id="dlg-cons">
+  <div class="dh"><h2>Consultar pendências</h2><button class="x" data-close aria-label="Fechar">×</button></div>
+  <div class="db">
+    <label class="f">Fornecedor<select id="cons-forn"></select></label>
+    <div class="hint">Só fornecedores com CPF/CNPJ. "Todos" pede as pendências de todos.</div>
+  </div>
+  <div class="df"><span></span><div class="row"><button class="btn" id="cons-baixar">Baixar XML</button><button class="btn pri" id="cons-enviar">Enviar via socket</button></div></div>
+</dialog>
+
+<dialog id="dlg-envio">
+  <div class="dh"><h2 id="env-titulo">Enviar ao Estoque</h2><button class="x" data-close aria-label="Fechar">×</button></div>
+  <div class="db">
+    <label class="f" id="env-f-escopo">Quais entradas<select id="env-escopo"><option value="pendentes">Só as não enviadas</option><option value="todas">Todas</option></select></label>
+    <label class="f" id="env-f-formato">Formato<select id="env-formato">
+      <option value="v2">estoque v2: SKU e quantidade</option>
+      <option value="v1">recebimento-v1: fornecedor, status e custo</option>
+    </select></label>
+    <label class="f">Como enviar<select id="env-destino">
+      <option value="api">API do Estoque (só v2, entra no saldo na hora)</option>
+      <option value="socket">Arquivo pelo socket</option>
+      <option value="arquivo">Baixar o XML</option>
+    </select></label>
+    <div class="hint" id="env-hint"></div>
+  </div>
+  <div class="df"><span></span><div class="row"><button class="btn" data-close>Cancelar</button><button class="btn pri" id="env-ok">Enviar</button></div></div>
+</dialog>
+
+<dialog id="dlg-xml" class="lg">
+  <div class="dh"><h2 id="xml-titulo">XML</h2><button class="x" data-close aria-label="Fechar">×</button></div>
+  <div class="db"><div class="hint" id="xml-meta"></div><pre class="xml" id="xml-view"></pre></div>
+  <div class="df"><a class="link" id="xml-xsd" target="_blank" rel="noopener">Abrir XSD</a><div class="row"><button class="btn" id="xml-copiar">Copiar</button><button class="btn" id="xml-baixar">Baixar</button></div></div>
+</dialog>
+
+<input type="file" id="f-csv" accept=".csv,.txt" hidden>
+<input type="file" id="f-fin" accept=".xml" hidden>
+<input type="file" id="f-est" accept=".xml" hidden>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="estoque-xml.js" charset="utf-8"></script>
+<script>
+'use strict';
+/* =============================================================================
+   Controle de Compras (versão enxuta)
+   Mesmas integrações do Projeto-Arruda:
+   - API do Estoque: GET /api/xml, POST /api/xml/validar, POST /api/xml
+   - Ponte socket (ponte-socket.js): /eventos (SSE), /status, /enviar, /arquivo, /lista, /proxy
+   - Contratos: estoque v2, recebimento-v1, previsao-entrega-v1, confirmacao-recebimento-v1,
+     consultaDisponibilidade/respostaDisponibilidade (via estoque-xml.js),
+     Finanweb saida-v2, pendencias-fornecedor-v1 e aviso-pagamento-v1.
+   Mesmo localStorage do original (controle_compras_v2): os dados existentes continuam valendo.
+   ========================================================================== */
+const STORAGE_KEY = 'controle_compras_v2';
+const PROMO = 2;
+const ORIGEM = 'compras';
+const API_PADRAO = 'https://sistema-de-estoque-cyan.vercel.app';
+const PONTE_PADRAO = 'http://localhost:8787';
+const NS_SAIDA = 'urn:finanweb:saida:2.0';
+const NS_PEND = 'urn:finanweb:pendencias-fornecedor:1.0';
+const NS_AVISO = 'urn:finanweb:aviso-pagamento:1.0';
+const FIN_XSD = 'https://finanwebsistema.vercel.app/api/contratos/';
+const EX = window.EstoqueXML || null;
+
+/* ---------- utilitários ---------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const uid = () => Math.random().toString(36).slice(2, 8);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const xmlEsc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;' }[c]));
+const money = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const semAcento = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+const chave = s => semAcento(s).toLowerCase().replace(/\s+/g, ' ').trim();
+const contem = (q, ...campos) => !q || campos.some(c => chave(c).includes(q));
+const soDigitos = s => String(s || '').replace(/\D/g, '');
+const docValido = d => /^(\d{11}|\d{14})$/.test(d || '');
+const txt120 = s => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 120).trim();
+const centavos = n => Math.round((Number(n) || 0) * 100);
+const dec2 = n => (centavos(n) / 100).toFixed(2);
+const isoOk = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+const hoje = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const somaDias = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const fmtData = iso => isoOk(iso) ? iso.split('-').reverse().join('/') : (iso || '—');
+const fmtDataHora = iso => { const d = new Date(iso); return isNaN(d) ? (iso || '—') : d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }); };
+function fmtDoc(d){
+  d = soDigitos(d);
+  if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+  return d;
+}
+function padronizaNome(s){
+  const b = (s || '').replace(/\s+/g, ' ').trim();
+  return b ? b.split(' ').map(w => (w.length <= 3 && w === w.toUpperCase()) ? w : w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ') : '';
+}
+const st = (txt, cls) => `<span class="st ${cls || ''}">${esc(txt)}</span>`;
+function baixar(nome, conteudo, tipo){
+  const bom = tipo === 'csv' ? '﻿' : '';
+  const blob = new Blob([bom + conteudo], { type: tipo === 'csv' ? 'text/csv;charset=utf-8' : 'application/xml;charset=utf-8' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: nome });
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function lerArquivo(input, fn){
+  input.onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { e.target.value = ''; fn(String(r.result), f.name); };
+    r.readAsText(f, 'utf-8');
+  };
+}
+function toast(msg, tipo = 'info'){
+  const box = $('#toasts'), t = document.createElement('div');
+  t.className = 'toast ' + tipo; t.setAttribute('role', tipo === 'erro' ? 'alert' : 'status'); t.textContent = msg;
+  box.appendChild(t); requestAnimationFrame(() => t.classList.add('on'));
+  while (box.children.length > 4) box.firstChild.remove();
+  setTimeout(() => { t.classList.remove('on'); setTimeout(() => t.remove(), 250); }, tipo === 'erro' ? 6000 : 3200);
+}
+
+/* ---------- estado ---------- */
+function estadoVazio(){
+  return { seq: 1000, pedidos: [], fornecedores: [], logs: [], importados: [], movimentacoes: [],
+    config: { empresa: '', cnpj: '', usuario: '' }, consultaSeq: 0, consultas: [], pendencias: null,
+    socket: { url: PONTE_PADRAO, destFin: '#finanweb', destEst: '#sistema-de-estoque' },
+    estoque: null, xmlHist: [], avisos: [] };
+}
+let S = estadoVazio();
+function salvar(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); } catch (e) {} contadores(); }
+function carregar(){
+  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) { S = Object.assign(estadoVazio(), JSON.parse(raw)); return true; } } catch (e) {}
+  return false;
+}
+function est(){
+  const s = S.estoque = S.estoque || {};
+  s.apiUrl = s.apiUrl || ''; s.saldo = s.saldo || null; s.entradas = s.entradas || [];
+  s.seq = s.seq || 0; s.consultas = s.consultas || []; s.consultaSeq = s.consultaSeq || 0;
+  return s;
+}
+function log(evt){
+  S.logs.unshift({ ts: new Date().toLocaleString('pt-BR'), evt });
+  S.logs = S.logs.slice(0, 1000);
+  salvar();
+  if (!$('#v-atividade').hidden) renderLogs();
+}
+
+/* ---------- regras de pedido ---------- */
+const totalPedido = p => p.itens.reduce((s, i) => s + i.qtd * i.preco, 0);
+const totalRecebido = p => p.itens.reduce((s, i) => s + (i.receb || 0), 0);
+const totalQtd = p => p.itens.reduce((s, i) => s + i.qtd, 0);
+const recebido = p => p.log === 'Recebido' || p.recebido;
+const atrasado = p => !recebido(p) && isoOk(p.previsao) && p.previsao < hoje();
+const pedidosAbertos = () => S.pedidos.filter(p => !recebido(p));
+const proxNum = () => 'PC-' + (++S.seq);
+const FIN_CLS = { Pendente: 'warn', Aprovado: 'info', Pago: 'ok' };
+const LOG_CLS = { Aguardando: '', 'Em trânsito': 'info', Parcial: 'warn', Recebido: 'ok' };
+function atualizaLogistica(p){
+  const r = totalRecebido(p), t = totalQtd(p);
+  if (r <= 0) { if (p.log === 'Parcial' || p.log === 'Recebido') p.log = 'Aguardando'; p.recebido = false; }
+  else if (r < t) { p.log = 'Parcial'; p.recebido = false; }
+  else { p.log = 'Recebido'; p.recebido = true; }
+}
+function progresso(r, t){
+  const pct = t ? Math.round(100 * r / t) : 0;
+  return `<span class="prog"><i class="${pct >= 100 ? 'done' : ''}" style="--p:${pct}%"></i><span class="sm mut">${r}/${t}</span></span>`;
+}
+function entrega(p){
+  if (recebido(p)) return '<span class="mut sm">Entregue</span>';
+  if (!isoOk(p.previsao)) return '<span class="mut sm">Sem previsão</span>';
+  const dias = Math.round((new Date(p.previsao + 'T12:00:00') - new Date(hoje() + 'T12:00:00')) / 86400000);
+  if (dias < 0) return st(fmtData(p.previsao) + ' · ' + (-dias) + 'd atraso', 'bad');
+  if (dias === 0) return st('Hoje', 'warn');
+  return `<span>${fmtData(p.previsao)}</span>`;
+}
+
+/* ---------- fornecedores ---------- */
+const acharForn = nome => S.fornecedores.find(f => chave(f.nome) === chave(nome));
+function usaForn(nome, silencioso){
+  const n = padronizaNome(nome); if (!n) return null;
+  let f = acharForn(n);
+  if (!f) { f = { id: uid(), nome: n, cnpj: '', contato: '', usos: 0, cadastrado: false, manual: false }; S.fornecedores.push(f); }
+  f.usos = (f.usos || 0) + 1;
+  if (!f.cadastrado && f.usos >= PROMO) { f.cadastrado = true; if (!silencioso) log('Fornecedor "' + f.nome + '" virou cadastro (' + f.usos + ' usos).'); }
+  return f;
+}
+function recalcUsos(){
+  const c = {};
+  S.pedidos.forEach(p => { const k = chave(p.fornecedor); if (k) c[k] = (c[k] || 0) + 1; });
+  S.fornecedores.forEach(f => { f.usos = c[chave(f.nome)] || 0; if (f.usos >= PROMO || f.manual) f.cadastrado = true; });
+}
+function docForn(nome){ const f = acharForn(nome), d = soDigitos(f && f.cnpj); return docValido(d) ? d : undefined; }
+
+/* ---------- navegação ---------- */
+const VIEWS = ['pedidos', 'recebimentos', 'estoque', 'financeiro', 'fornecedores', 'integracoes', 'atividade'];
+const RENDER = { pedidos: renderPedidos, recebimentos: renderReceb, estoque: renderEstoque, financeiro: renderFin,
+  fornecedores: renderForn, integracoes: renderIntegracoes, atividade: renderAtividade };
+function ir(v){
+  if (!VIEWS.includes(v)) v = 'pedidos';
+  $$('.nav').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  VIEWS.forEach(k => $('#v-' + k).hidden = k !== v);
+  RENDER[v]();
+  document.body.classList.remove('nav-open');
+  if (location.hash.slice(1) !== v) history.replaceState(null, '', '#' + v);
+  scrollTo(0, 0);
+}
+$$('.nav').forEach(b => b.onclick = () => ir(b.dataset.view));
+$('#burger').onclick = e => { e.stopPropagation(); document.body.classList.add('nav-open'); };
+document.addEventListener('click', e => {
+  if (document.body.classList.contains('nav-open') && !e.target.closest('.side')) document.body.classList.remove('nav-open');
+  const trg = e.target.closest('[data-menu]');
+  $$('.menu-list').forEach(m => { if (!trg || m !== trg.nextElementSibling) m.hidden = true; });
+  if (trg) { trg.nextElementSibling.hidden = !trg.nextElementSibling.hidden; return; }
+  if (e.target.closest('.menu-list button')) e.target.closest('.menu-list').hidden = true;
+});
+function contadores(){
+  const set = (id, n) => { const b = $(id); if (b) { b.textContent = n; b.hidden = !n; } };
+  set('#n-pedidos', S.pedidos.filter(atrasado).length);
+  set('#n-receb', itensAReceber().length);
+  set('#n-estoque', S.estoque && S.estoque.entradas ? S.estoque.entradas.filter(x => !x.enviado).length : 0);
+}
+function renderTudo(){ VIEWS.forEach(v => { if (!$('#v-' + v).hidden) RENDER[v](); }); contadores(); }
+function stats(alvo, lista){
+  $(alvo).innerHTML = lista.map(k => `<div class="stat ${k.c || ''}"><b>${esc(k.v)}</b><span>${esc(k.t)}</span></div>`).join('');
+}
+
+/* ---------- dialogs ---------- */
+$$('dialog').forEach(d => {
+  d.addEventListener('click', e => { if (e.target === d) d.close(); });
+  d.querySelectorAll('[data-close]').forEach(b => b.onclick = () => d.close());
+});
+const abrir = (id, foco) => { $(id).showModal(); if (foco) setTimeout(() => $(foco).focus(), 30); };
+
+/* =============================================================================
+   PEDIDOS
+   ========================================================================== */
+const fp = { q: '', fin: '', log: '' };
+function renderPedidos(){
+  const aPagar = S.pedidos.filter(p => p.fin !== 'Pago').reduce((s, p) => s + totalPedido(p), 0);
+  const atr = S.pedidos.filter(atrasado).length;
+  stats('#st-pedidos', [
+    { v: pedidosAbertos().length, t: 'em aberto' },
+    { v: money(aPagar), t: 'a pagar' },
+    { v: atr, t: 'entregas atrasadas', c: atr ? 'bad' : '' },
+    { v: S.pedidos.filter(recebido).length, t: 'recebidos' }
+  ]);
+  const q = chave(fp.q);
+  const lista = S.pedidos.filter(p => (!fp.fin || p.fin === fp.fin) && (!fp.log || p.log === fp.log) &&
+    contem(q, p.num, p.fornecedor, ...p.itens.map(i => i.nome + ' ' + i.sku)));
+  $('#fp-meta').textContent = lista.length === S.pedidos.length ? S.pedidos.length + ' pedido(s)' : lista.length + ' de ' + S.pedidos.length;
+  $('#tb-pedidos').innerHTML = lista.map(p => `<tr>
+    <td class="mono">${esc(p.num)}</td>
+    <td>${esc(p.fornecedor) || '<span class="mut">—</span>'}<div class="sm mut">${p.itens.length} item(ns)</div></td>
+    <td class="r">${money(totalPedido(p))}</td>
+    <td>${progresso(totalRecebido(p), totalQtd(p))}</td>
+    <td>${entrega(p)}</td>
+    <td>${st(p.fin, FIN_CLS[p.fin])}${p.avisoFin === 'CANCELADO' ? '<div class="sm" style="color:var(--bad)">Cancelada no Financeiro</div>' : p.avisoFin === 'PAGO' ? '<div class="sm mut">Confirmado pelo Financeiro</div>' : ''}</td>
+    <td>${st(p.log, LOG_CLS[p.log])}</td>
+    <td><div class="acts"><button class="link" data-ed="${p.id}">Editar</button><button class="link bad" data-del="${p.id}">Excluir</button></div></td>
+  </tr>`).join('');
+  $('#em-pedidos').hidden = lista.length > 0;
+  $('#em-pedidos-t').textContent = S.pedidos.length ? 'Nenhum pedido com esses filtros.' : 'Crie um pedido ou importe o CSV do Estoque.';
+}
+$('#fp-q').oninput = e => { fp.q = e.target.value; renderPedidos(); };
+$('#fp-fin').onchange = e => { fp.fin = e.target.value; renderPedidos(); };
+$('#fp-log').onchange = e => { fp.log = e.target.value; renderPedidos(); };
+$('#tb-pedidos').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.ed) abrirPedido(S.pedidos.find(p => p.id === b.dataset.ed));
+  if (b.dataset.del) {
+    const p = S.pedidos.find(p => p.id === b.dataset.del);
+    if (!confirm('Excluir o pedido ' + p.num + '?')) return;
+    S.pedidos = S.pedidos.filter(x => x !== p);
+    log('Pedido ' + p.num + ' excluído.'); recalcUsos(); salvar(); renderTudo();
+  }
+};
+
+/* --- modal do pedido --- */
+let editando = null;
+function linhaItem(it = { sku: '', nome: '', qtd: 1, preco: 0 }){
+  const d = document.createElement('div'); d.className = 'item';
+  d.innerHTML = `<input class="i-sku" value="${esc(it.sku)}" placeholder="SKU" aria-label="SKU">
+    <input class="i-nome" value="${esc(it.nome)}" placeholder="Produto" aria-label="Produto">
+    <input class="i-qtd" type="number" min="1" value="${it.qtd}" aria-label="Quantidade">
+    <input class="i-preco" type="number" min="0" step="0.01" value="${it.preco}" aria-label="Preço">
+    <button title="Remover" aria-label="Remover item">×</button>`;
+  d.querySelector('button').onclick = () => { d.remove(); totalModal(); };
+  d.querySelectorAll('input').forEach(i => i.oninput = totalModal);
+  return d;
+}
+function totalModal(){
+  const t = $$('#pd-itens .item').reduce((s, r) => s + (+r.querySelector('.i-qtd').value || 0) * (+r.querySelector('.i-preco').value || 0), 0);
+  $('#pd-total').textContent = 'Total ' + money(t);
+}
+function datalistForn(){
+  $('#dl-forn').innerHTML = [...S.fornecedores].sort((a, b) => (b.cadastrado - a.cadastrado) || a.nome.localeCompare(b.nome))
+    .map(f => `<option value="${esc(f.nome)}">`).join('');
+}
+function abrirPedido(p = null, preset = null){
+  editando = p; datalistForn();
+  $('#pd-titulo').textContent = p ? 'Editar ' + p.num : 'Novo pedido';
+  $('#pd-forn').value = p ? p.fornecedor : (preset && preset.fornecedor) || '';
+  $('#pd-fin').value = p ? p.fin : 'Pendente';
+  $('#pd-log').value = p ? p.log : 'Aguardando';
+  $('#pd-cat').value = p ? (p.categoria || 'Mercadorias') : 'Mercadorias';
+  $('#pd-pag').value = p ? (p.formaPag || 'Boleto') : 'Boleto';
+  $('#pd-venc').value = p ? (p.vencimento || '') : somaDias(hoje(), 30);
+  $('#pd-prev').value = p ? (p.previsao || '') : somaDias(hoje(), 7);
+  const box = $('#pd-itens'); box.innerHTML = '';
+  const itens = p ? p.itens : (preset && preset.itens && preset.itens.length ? preset.itens : [{ sku: '', nome: '', qtd: 1, preco: 0 }]);
+  itens.forEach(it => box.appendChild(linhaItem(it)));
+  totalModal(); abrir('#dlg-pedido', '#pd-forn');
+}
+$('#ped-novo').onclick = () => abrirPedido();
+$('#pd-add').onclick = () => { const r = linhaItem(); $('#pd-itens').appendChild(r); r.querySelector('.i-sku').focus(); };
+$('#pd-salvar').onclick = () => {
+  const itens = $$('#pd-itens .item').map(r => ({
+    sku: r.querySelector('.i-sku').value.trim(), nome: r.querySelector('.i-nome').value.trim(),
+    qtd: Math.max(0, parseInt(r.querySelector('.i-qtd').value, 10) || 0), preco: Math.max(0, +r.querySelector('.i-preco').value || 0)
+  })).filter(i => i.nome);
+  if (!itens.length) return toast('Adicione ao menos um item com o nome do produto.', 'erro');
+  if (itens.some(i => i.qtd <= 0)) return toast('Todo item precisa de quantidade maior que zero.', 'erro');
+  const forn = padronizaNome($('#pd-forn').value), fin = $('#pd-fin').value, lg = $('#pd-log').value;
+  const extra = { categoria: $('#pd-cat').value.trim() || 'Mercadorias', formaPag: $('#pd-pag').value, vencimento: $('#pd-venc').value, previsao: $('#pd-prev').value };
+  if (editando) {
+    const antes = editando.fornecedor, rec = {};
+    editando.itens.forEach(i => rec[(i.sku || '') + '|' + i.nome] = i.receb || 0);
+    editando.itens = itens.map(i => ({ ...i, receb: Math.min(rec[(i.sku || '') + '|' + i.nome] || 0, i.qtd) }));
+    if (fin === 'Pago' && editando.fin !== 'Pago' && !editando.pagoEm) editando.pagoEm = hoje();
+    if (fin !== 'Pago') delete editando.pagoEm;
+    Object.assign(editando, { fornecedor: forn, fin, log: lg }, extra);
+    if (!editando.emissao) editando.emissao = hoje();
+    atualizaLogistica(editando);
+    if (chave(antes) !== chave(forn)) usaForn(forn);
+    log('Pedido ' + editando.num + ' editado.'); toast('Pedido ' + editando.num + ' salvo.', 'ok');
+  } else {
+    const num = proxNum();
+    const p = { id: uid(), num, fornecedor: forn, itens: itens.map(i => ({ ...i, receb: 0 })), fin, log: lg, recebido: false, ...extra, emissao: hoje(), ...(fin === 'Pago' ? { pagoEm: hoje() } : {}) };
+    atualizaLogistica(p); S.pedidos.unshift(p); usaForn(forn);
+    log('Pedido ' + num + ' criado: ' + money(totalPedido(p)) + ', ' + (forn || 'sem fornecedor') + '.'); toast('Pedido ' + num + ' criado.', 'ok');
+  }
+  recalcUsos(); salvar(); $('#dlg-pedido').close(); renderTudo();
+};
+
+/* --- CSV --- */
+function splitCSV(linha, d){
+  const out = []; let cur = '', dentro = false;
+  for (let i = 0; i < linha.length; i++) {
+    const c = linha[i];
+    if (c === '"') { if (dentro && linha[i + 1] === '"') { cur += '"'; i++; } else dentro = !dentro; }
+    else if (c === d && !dentro) { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur); return out.map(s => s.trim());
+}
+function delim(l){
+  const c = { ';': 0, ',': 0, '\t': 0 }; let dentro = false;
+  for (const ch of l) { if (ch === '"') dentro = !dentro; else if (!dentro && c[ch] != null) c[ch]++; }
+  return Object.keys(c).reduce((a, b) => c[b] > c[a] ? b : a, ';');
+}
+const csvCel = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+const csvLinha = vals => vals.map(csvCel).join(';') + '\n';
+const br = n => (Number(n) || 0).toFixed(2).replace('.', ',');
+$('#csv-importar').onclick = () => $('#f-csv').click();
+lerArquivo($('#f-csv'), texto => {
+  const linhas = texto.replace(/^﻿/, '').trim().split(/\r?\n/).filter(l => l.trim());
+  if (!linhas.length) return toast('Arquivo vazio.', 'erro');
+  const d = delim(linhas[0]), head = splitCSV(linhas.shift(), d).map(h => semAcento(h).toLowerCase());
+  const ix = (...p) => head.findIndex(h => p.some(x => h.startsWith(x)));
+  const iNome = ix('nome', 'produto'), iQtd = ix('quant');
+  if (iNome < 0 || iQtd < 0) return toast('O CSV precisa das colunas Nome e Quantidade. Baixe o modelo.', 'erro');
+  const iSku = ix('sku'), iPreco = ix('pre'), iMin = ix('estoque m', 'min'), iForn = ix('fornec');
+  const num = v => parseFloat(String(v || '0').replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+  const grupos = {};
+  linhas.forEach(l => {
+    const c = splitCSV(l, d), nome = (c[iNome] || '').trim(), sku = iSku >= 0 ? (c[iSku] || '').trim() : '';
+    if (!nome && !sku) return;
+    const qtd = num(c[iQtd]), min = iMin >= 0 ? num(c[iMin]) : 0;
+    const sug = (min > 0 && qtd < min) ? Math.ceil(min - qtd) : (qtd || min || 1);
+    const forn = padronizaNome(iForn >= 0 ? c[iForn] : '') || '(importado do Estoque)';
+    (grupos[forn] = grupos[forn] || []).push({ sku, nome, qtd: Math.max(1, Math.round(sug)), preco: iPreco >= 0 ? num(c[iPreco]) : 0, receb: 0 });
+  });
+  const nums = Object.keys(grupos).map(forn => {
+    const n = proxNum();
+    S.pedidos.unshift({ id: uid(), num: n, fornecedor: forn, itens: grupos[forn], fin: 'Pendente', log: 'Aguardando', recebido: false, emissao: hoje(), previsao: somaDias(hoje(), 7) });
+    usaForn(forn); return n;
+  });
+  if (!nums.length) return toast('Nenhuma linha válida no CSV.', 'erro');
+  log('CSV importado: ' + nums.length + ' pedido(s) (' + nums.join(', ') + ').');
+  recalcUsos(); salvar(); renderTudo(); toast(nums.length + ' pedido(s) criado(s).', 'ok');
+});
+$('#csv-modelo').onclick = () => {
+  baixar('modelo_estoque.csv', csvLinha(['SKU', 'Nome', 'Quantidade', 'Preço', 'Fornecedor']) +
+    csvLinha(['A100', 'Papel A4 75g', 5, br(22.9), 'Distribuidora Sul Ltda']) +
+    csvLinha(['B300', 'Detergente 5L', 2, br(18), 'Atacado Sul']), 'csv');
+};
+$('#csv-exportar').onclick = () => {
+  if (!S.pedidos.length) return toast('Nenhum pedido para exportar.', 'erro');
+  let out = csvLinha(['Pedido', 'Fornecedor', 'Financeiro', 'Logística', 'SKU', 'Produto', 'Quantidade', 'Recebido', 'Preço']);
+  S.pedidos.forEach(p => p.itens.forEach(i => out += csvLinha([p.num, p.fornecedor, p.fin, p.log, i.sku, i.nome, i.qtd, i.receb || 0, br(i.preco)])));
+  baixar('compras_pedidos.csv', out, 'csv'); log('Exportado CSV de pedidos.');
+};
+
+/* =============================================================================
+   RECEBIMENTOS
+   ========================================================================== */
+const fr = { q: '' };
+function itensAReceber(){
+  const rows = [];
+  S.pedidos.forEach(p => p.itens.forEach((i, idx) => { if ((i.receb || 0) < i.qtd) rows.push({ p, i, idx }); }));
+  return rows;
+}
+function renderReceb(){
+  const todos = itensAReceber(), q = chave(fr.q);
+  const rows = todos.filter(({ p, i }) => contem(q, p.num, p.fornecedor, i.nome, i.sku));
+  $('#fr-meta').textContent = todos.length ? rows.length + ' item(ns)' : '';
+  $('#em-receb').hidden = rows.length > 0;
+  $('#tb-receb').innerHTML = rows.map(({ p, i, idx }) => {
+    const resto = i.qtd - (i.receb || 0);
+    return `<tr>
+      <td class="mono">${esc(p.num)}</td><td>${esc(p.fornecedor) || '—'}</td><td class="mono">${esc(i.sku) || '—'}</td><td>${esc(i.nome)}</td>
+      <td>${progresso(i.receb || 0, i.qtd)}</td><td>${entrega(p)}</td>
+      <td><div class="row" style="gap:6px;flex-wrap:nowrap">
+        <input class="rq" type="number" min="1" max="${resto}" value="${resto}" style="width:70px;height:28px" aria-label="Quantidade recebida">
+        <button class="btn sm pri" data-rec="${p.id}:${idx}">Receber</button>
+        <button class="link mut" data-tudo="${p.id}:${idx}">Tudo</button>
+      </div></td></tr>`;
+  }).join('');
+}
+$('#fr-q').oninput = e => { fr.q = e.target.value; renderReceb(); };
+$('#tb-receb').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const ref = b.dataset.rec || b.dataset.tudo; if (!ref) return;
+  const [pid, ix] = ref.split(':'), p = S.pedidos.find(x => x.id === pid), it = p && p.itens[+ix]; if (!it) return;
+  const antes = it.receb || 0, resto = it.qtd - antes;
+  let q = resto;
+  if (b.dataset.rec) {
+    const inp = b.closest('tr').querySelector('.rq'); q = parseInt(inp.value, 10);
+    if (!(q > 0)) { inp.focus(); return toast('Informe uma quantidade maior que zero.', 'erro'); }
+    if (q > resto) { inp.value = resto; return toast('Restam só ' + resto + ' unidade(s).', 'erro'); }
+  }
+  it.receb = antes + q; atualizaLogistica(p); registraEntrada(p, it, q, resto);
+  log('Recebimento ' + (p.recebido ? 'concluído' : 'parcial') + ': ' + p.num + ' / ' + it.nome + ' (' + it.receb + '/' + it.qtd + ').');
+  salvar(); renderTudo();
+  const auto = $('#fr-auto').checked;
+  toast((p.recebido ? 'Pedido ' + p.num + ' recebido.' : q + 'x ' + it.nome + ' recebido(s).') + (auto ? ' Enviando ao Estoque…' : ''), 'ok');
+  if (auto) entradaAutomatica();
+};
+$('#fr-auto').onchange = e => { est().autoEnviar = e.target.checked; salvar(); };
+$('#rec-enviar').onclick = async () => {
+  const pend = est().entradas.filter(x => !x.enviado);
+  if (!pend.length) return toast('Nenhuma entrada pendente.', 'ok');
+  const b = $('#rec-enviar'); b.disabled = true;
+  const r = await enviarEntradasApi(pend, 'manual'); b.disabled = false;
+  if (r.ok) { toast(r.n + ' entrada(s) registrada(s) no Estoque.', 'ok'); atualizarSaldoSilencioso(); }
+};
+function totaisRecebidos(){
+  const m = new Map();
+  S.pedidos.forEach(p => p.itens.forEach(i => {
+    if (!(i.receb > 0)) return;
+    const k = chave(i.nome), r = m.get(k) || { produto: i.nome, quantidade: 0 }; r.quantidade += i.receb; m.set(k, r);
+  }));
+  return [...m.values()];
+}
+$('#rec-csv').onclick = () => {
+  const itens = totaisRecebidos(); if (!itens.length) return toast('Nenhum recebimento ainda.', 'erro');
+  const limpa = v => String(v ?? '').replace(/[;\r\n"]/g, ' ').trim();
+  baixar('estoque_entrada.csv', 'Produto;Quantidade\n' + itens.map(r => limpa(r.produto) + ';' + r.quantidade).join('\n') + '\n', 'csv');
+  log('Exportado CSV de entrada p/ Estoque (' + itens.length + ' produto(s)).');
+};
+$('#rec-sock').onclick = async () => {
+  const itens = totaisRecebidos(); if (!itens.length) return toast('Nenhum recebimento ainda.', 'erro');
+  const msg = { origem: ORIGEM, destino: 'estoque', tipo: 'entrada', data: hoje(), itens };
+  if (await sockEnviar(destEst() + ' ' + JSON.stringify(msg), 'entrada p/ Estoque')) toast(itens.length + ' produto(s) enviado(s) via socket.', 'ok');
+};
+
+/* =============================================================================
+   ESTOQUE
+   ========================================================================== */
+let estAba = 'saldo';
+const fes = { q: '', sit: '' }, fee = { filtro: '' }, sel = new Set();
+const SIT = { falta: ['Sem saldo', 'bad'], baixo: ['No mínimo', 'warn'], ok: ['Normal', 'ok'] };
+const situacao = p => p.quantidade <= 0 ? 'falta' : p.quantidade <= p.estoqueMinimo ? 'baixo' : 'ok';
+function skuEst(sku, nome){ if (!EX) return String(sku || '').trim(); return (EX.normalizarSku(sku) || EX.normalizarSku(nome)).slice(0, 40).replace(/-+$/, ''); }
+function exigeModulo(){ if (EX) return true; toast('estoque-xml.js não carregou: deixe-o na mesma pasta do index.html.', 'erro'); return false; }
+function registraEntrada(p, it, delta, restoAntes){
+  const s = est(); s.seq++;
+  const id = String(p.num).replace(/^PC-/i, '') + '-' + s.seq;
+  s.entradas.unshift({ id, externalId: 'REC-' + id, pedido: p.num, recebidoEm: new Date().toISOString(), fornecedor: p.fornecedor,
+    sku: skuEst(it.sku, it.nome), nome: it.nome, quantidade: delta, quantidadePedida: restoAntes, preco: it.preco,
+    tipo: p.recebido ? 'TOTAL' : 'PARCIAL', enviado: null, statusEstoque: null, divergencias: [], mensagemEstoque: '' });
+}
+function renderEstoque(){
+  const s = est(), prods = s.saldo ? s.saldo.produtos : [];
+  const baixos = prods.filter(p => situacao(p) !== 'ok').length, abertos = pedidosAbertos(), atr = abertos.filter(atrasado).length;
+  const pend = s.entradas.filter(x => !x.enviado).length;
+  const div = s.entradas.filter(x => x.statusEstoque === 'DIVERGENTE' || x.statusEstoque === 'REJEITADO').length;
+  stats('#st-estoque', [
+    { v: s.saldo ? prods.length : '—', t: 'produtos no saldo' },
+    { v: s.saldo ? baixos : '—', t: 'no mínimo ou abaixo', c: baixos ? 'warn' : '' },
+    { v: abertos.length, t: 'entregas previstas' + (atr ? ' (' + atr + ' atrasada' + (atr > 1 ? 's' : '') + ')' : ''), c: atr ? 'bad' : '' },
+    { v: pend, t: 'entradas a enviar', c: pend ? 'warn' : '' },
+    { v: div, t: 'divergências', c: div ? 'bad' : '' }
+  ]);
+  $('#c-saldo').textContent = s.saldo ? prods.length : '';
+  $('#c-prev').textContent = abertos.length || '';
+  $('#c-ent').textContent = s.entradas.length || '';
+  $('#c-cons').textContent = s.consultas.length || '';
+  $$('#est-tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.aba === estAba));
+  ['saldo', 'previsoes', 'entradas', 'consultas'].forEach(a => $('#aba-' + a).hidden = a !== estAba);
+  ({ saldo: renderSaldo, previsoes: renderPrevisoes, entradas: renderEntradas, consultas: renderConsultas })[estAba]();
+}
+$$('#est-tabs .tab').forEach(b => b.onclick = () => { estAba = b.dataset.aba; renderEstoque(); });
+
+function renderSaldo(){
+  const s = est(), meta = $('#es-meta');
+  if (!s.saldo) {
+    meta.hidden = true; $('#tb-saldo').innerHTML = ''; $('#em-saldo').hidden = false;
+    $('#em-saldo-t').textContent = 'Saldo não carregado';
+    $('#em-saldo-p').textContent = 'Busque pela API, importe o XML do Estoque ou aguarde o socket.';
+    return atualizaSel();
+  }
+  const via = { arquivo: 'arquivo', socket: 'socket', api: 'API' }[s.saldo.via] || s.saldo.via;
+  meta.hidden = false;
+  meta.innerHTML = 'Gerado pelo Estoque em <b>' + esc(fmtDataHora(s.saldo.geradoEm)) + '</b>, recebido via ' + esc(via) + ' em ' + esc(fmtDataHora(s.saldo.recebidoEm)) + '.';
+  const q = chave(fes.q), ord = { falta: 0, baixo: 1, ok: 2 };
+  const lista = s.saldo.produtos.filter(p => (!fes.sit || situacao(p) === fes.sit) && contem(q, p.sku, p.nome))
+    .sort((a, b) => (ord[situacao(a)] - ord[situacao(b)]) || a.nome.localeCompare(b.nome));
+  $('#em-saldo').hidden = lista.length > 0;
+  if (!lista.length) { $('#em-saldo-t').textContent = 'Nenhum produto'; $('#em-saldo-p').textContent = 'Troque os filtros.'; }
+  $('#tb-saldo').innerHTML = lista.map(p => {
+    const [t, c] = SIT[situacao(p)];
+    return `<tr><td><input type="checkbox" data-sel="${esc(p.sku)}" ${sel.has(p.sku) ? 'checked' : ''} aria-label="Selecionar"></td>
+      <td class="mono">${esc(p.sku)}</td><td>${esc(p.nome)}${p.finalidade === 'USO_INTERNO' ? ' <span class="sm mut">· uso interno</span>' : ''}</td>
+      <td class="r"><b>${p.quantidade}</b></td><td class="r mut">${p.estoqueMinimo}</td><td class="r">${money(p.preco)}</td><td>${st(t, c)}</td></tr>`;
+  }).join('');
+  atualizaSel();
+}
+function atualizaSel(){
+  const n = sel.size, b = $('#es-pedir');
+  b.disabled = !n; b.textContent = n ? 'Criar pedido (' + n + ')' : 'Criar pedido';
+  const vis = $$('#tb-saldo [data-sel]');
+  $('#es-all').checked = vis.length > 0 && vis.every(c => c.checked);
+}
+$('#es-q').oninput = e => { fes.q = e.target.value; renderSaldo(); };
+$('#es-sit').onchange = e => { fes.sit = e.target.value; renderSaldo(); };
+$('#tb-saldo').onchange = e => { const c = e.target.closest('[data-sel]'); if (!c) return; c.checked ? sel.add(c.dataset.sel) : sel.delete(c.dataset.sel); atualizaSel(); };
+$('#es-all').onchange = e => { $$('#tb-saldo [data-sel]').forEach(c => { c.checked = e.target.checked; c.checked ? sel.add(c.dataset.sel) : sel.delete(c.dataset.sel); }); atualizaSel(); };
+$('#es-baixos').onclick = () => {
+  const s = est(); if (!s.saldo) return toast('Carregue o saldo primeiro.', 'erro');
+  sel.clear(); s.saldo.produtos.filter(p => situacao(p) !== 'ok').forEach(p => sel.add(p.sku)); renderSaldo();
+  toast(sel.size ? sel.size + ' produto(s) selecionado(s).' : 'Nenhum produto no mínimo ou abaixo.');
+};
+$('#es-pedir').onclick = () => {
+  const s = est(); if (!s.saldo || !sel.size) return;
+  const itens = s.saldo.produtos.filter(p => sel.has(p.sku)).map(p => ({ sku: p.sku, nome: p.nome, preco: Number(p.preco) || 0,
+    qtd: p.estoqueMinimo > 0 ? Math.max(1, p.estoqueMinimo * 2 - p.quantidade) : 1 }));
+  sel.clear(); renderSaldo(); abrirPedido(null, { itens });
+};
+
+function renderPrevisoes(){
+  const lista = pedidosAbertos().sort((a, b) => (a.previsao || '9999').localeCompare(b.previsao || '9999'));
+  $('#em-prev').hidden = lista.length > 0;
+  $('#tb-prev').innerHTML = lista.map(p => {
+    const falta = p.itens.reduce((s, i) => s + Math.max(0, i.qtd - (i.receb || 0)), 0);
+    return `<tr><td class="mono">${esc(p.num)}</td><td>${esc(p.fornecedor) || '—'}</td><td class="r">${falta}</td>
+      <td>${entrega(p)}</td><td>${st(p.log, LOG_CLS[p.log])}</td>
+      <td><div class="acts"><button class="link" data-prev="${p.id}">Alterar previsão</button></div></td></tr>`;
+  }).join('');
+}
+$('#tb-prev').onclick = e => { const b = e.target.closest('[data-prev]'); if (b) { abrirPedido(S.pedidos.find(p => p.id === b.dataset.prev)); setTimeout(() => $('#pd-prev').focus(), 40); } };
+
+const ST_EST = { ACEITO: ['Aceito', 'ok'], DIVERGENTE: ['Divergente', 'warn'], REJEITADO: ['Rejeitado', 'bad'], DUPLICADO: ['Duplicado', ''] };
+function renderEntradas(){
+  const s = est();
+  const lista = s.entradas.filter(x => fee.filtro === 'pendente' ? !x.enviado : fee.filtro === 'enviada' ? !!x.enviado :
+    fee.filtro === 'divergente' ? (x.statusEstoque === 'DIVERGENTE' || x.statusEstoque === 'REJEITADO') : true);
+  $('#ee-meta').textContent = s.entradas.length ? lista.length + ' entrada(s)' : '';
+  $('#em-ent').hidden = lista.length > 0;
+  $('#tb-ent').innerHTML = lista.map(x => {
+    const env = x.enviado
+      ? st(x.enviado.destino === 'arquivo' ? 'Arquivo gerado' : 'Enviada', x.enviado.destino === 'arquivo' ? '' : 'info') +
+        `<div class="sm mut">${x.enviado.formato === 'v1' ? 'recebimento-v1' : 'estoque v2'}${x.enviado.destino !== 'arquivo' ? ' · ' + (x.enviado.destino === 'api' ? 'API' : 'socket') : ''}</div>`
+      : st('Não enviada', 'warn');
+    let ret = '<span class="sm mut">Aguardando</span>';
+    if (x.statusEstoque) {
+      const [t, c] = ST_EST[x.statusEstoque] || [x.statusEstoque, ''];
+      ret = st(t, c) + (x.divergencias || []).map(d => `<div class="sm mut">${esc(d.sku)}: informado ${d.quantidadeInformada}, contado ${d.quantidadeContada}</div>`).join('') +
+        (x.mensagemEstoque ? `<div class="sm mut">${esc(x.mensagemEstoque)}</div>` : '');
+    }
+    return `<tr><td class="sm mut">${esc(fmtDataHora(x.recebidoEm))}</td><td class="mono">${esc(x.pedido)}</td><td class="mono">${esc(x.sku)}</td>
+      <td>${esc(x.nome)}</td><td class="r">${x.quantidade}</td><td>${x.tipo === 'TOTAL' ? 'Total' : 'Parcial'}</td><td>${env}</td><td>${ret}</td></tr>`;
+  }).join('');
+}
+$('#ee-filtro').onchange = e => { fee.filtro = e.target.value; renderEntradas(); };
+
+/* --- montagem dos XMLs do Estoque --- */
+const cabEmpresa = () => ({ empresa: { razaoSocial: S.config.empresa, cnpj: S.config.cnpj }, usuario: S.config.usuario, origem: ORIGEM });
+function empresaOk(){
+  const c = S.config;
+  if (c.empresa && /^\d{14}$/.test(c.cnpj || '') && c.usuario) return true;
+  toast('Preencha os dados da empresa em Integrações: eles vão no cabeçalho do XML.', 'erro');
+  $$('dialog[open]').forEach(d => d.close()); ir('integracoes'); $('#cfg-empresa').focus();
+  return false;
+}
+function xmlEntradas(lista, formato){
+  if (formato === 'v2') return EX.gerarXml(EX.loteDeRecebimentos(lista.map(x => ({ id: x.id, recebidoEm: x.recebidoEm, itens: [{ sku: x.sku, nome: x.nome, quantidade: x.quantidade }] }))));
+  return EX.gerarRecebimentos({ ...cabEmpresa(), recebimentos: lista.map(x => ({
+    referencia: x.externalId, pedido: x.pedido, status: x.tipo, dataRecebimento: x.recebidoEm,
+    fornecedor: { nome: x.fornecedor || 'Sem fornecedor', documento: docForn(x.fornecedor) },
+    itens: [{ sku: x.sku, produto: x.nome, quantidade: x.quantidade,
+      quantidadePedida: x.quantidadePedida >= x.quantidade ? x.quantidadePedida : undefined,
+      custoUnitario: Number(x.preco) > 0 ? Number(x.preco).toFixed(2) : undefined }]
+  })) }).xml;
+}
+function xmlPrevisoes(){
+  const h = hoje();
+  const lista = pedidosAbertos().map(p => {
+    const itens = p.itens.filter(i => (i.receb || 0) < i.qtd).map(i => ({ sku: skuEst(i.sku, i.nome), produto: i.nome, quantidade: i.qtd - (i.receb || 0) }));
+    if (!itens.length) return null;
+    const prev = isoOk(p.previsao) ? p.previsao : somaDias(p.emissao || h, 7);
+    return { referencia: p.num, status: prev < h ? 'ATRASADA' : (p.log === 'Aguardando' ? 'AGUARDANDO' : 'EM_TRANSITO'),
+      dataPedido: isoOk(p.emissao) ? p.emissao : undefined, dataPrevista: prev,
+      fornecedor: { nome: p.fornecedor || 'Sem fornecedor', documento: docForn(p.fornecedor) }, itens };
+  }).filter(Boolean);
+  return lista.length ? { qtd: lista.length, xml: EX.gerarPrevisoes({ ...cabEmpresa(), previsoes: lista }).xml } : null;
+}
+
+/* --- modal de envio --- */
+let envioTipo = 'entradas';
+function abrirEnvio(tipo){
+  if (!exigeModulo()) return;
+  envioTipo = tipo; const ent = tipo === 'entradas';
+  $('#env-titulo').textContent = ent ? 'Enviar entradas ao Estoque' : 'Enviar previsões de entrega';
+  $('#env-f-escopo').hidden = $('#env-f-formato').hidden = !ent;
+  $('#env-formato').value = ent ? 'v2' : 'v1'; $('#env-destino').value = ent ? 'api' : 'socket';
+  hintEnvio(); abrir('#dlg-envio');
+}
+function hintEnvio(){
+  const s = est(), ent = envioTipo === 'entradas', fmt = ent ? $('#env-formato').value : 'v1', dst = $('#env-destino');
+  const optApi = dst.querySelector('[value=api]'); optApi.disabled = fmt !== 'v2';
+  if (optApi.disabled && dst.value === 'api') dst.value = 'arquivo';
+  let h;
+  if (ent) {
+    const n = $('#env-escopo').value === 'todas' ? s.entradas.length : s.entradas.filter(x => !x.enviado).length;
+    h = (n ? n + ' entrada(s). ' : 'Nenhuma entrada nesse filtro. ') + (fmt === 'v2' ? 'Leva SKU e quantidade como compra; reenvio não duplica.' : 'Leva fornecedor, status total/parcial e custo.');
+  } else {
+    const n = pedidosAbertos().length;
+    h = n ? n + ' pedido(s) em aberto no previsao-entrega-v1.' : 'Nenhum pedido em aberto.';
+  }
+  if (dst.value === 'socket' && !sockPronto()) h += ' Socket desconectado: conecte em Integrações.';
+  if (dst.value === 'api') h += ' Destino: ' + (s.apiUrl || API_PADRAO) + '.';
+  $('#env-hint').textContent = h;
+}
+['#env-escopo', '#env-formato', '#env-destino'].forEach(id => $(id).onchange = hintEnvio);
+$('#est-enviar').onclick = () => abrirEnvio('entradas');
+$('#est-prev').onclick = () => abrirEnvio('previsoes');
+$('#env-ok').onclick = async () => {
+  const s = est(), dst = $('#env-destino').value;
+  let xml, lista = [], formato = 'v1', rotulo, nome;
+  if ((envioTipo !== 'entradas' || $('#env-formato').value === 'v1') && !empresaOk()) return;
+  try {
+    if (envioTipo === 'entradas') {
+      formato = $('#env-formato').value;
+      lista = $('#env-escopo').value === 'todas' ? s.entradas.slice() : s.entradas.filter(x => !x.enviado);
+      if (!lista.length) return toast('Nenhuma entrada para enviar.', 'erro');
+      lista.reverse(); xml = xmlEntradas(lista, formato);
+      rotulo = lista.length + ' entrada(s) (' + (formato === 'v2' ? 'estoque v2' : 'recebimento-v1') + ')';
+      nome = (formato === 'v2' ? 'estoque-entradas-v2_' : 'recebimento-v1_') + hoje() + '.xml';
+    } else {
+      const r = xmlPrevisoes(); if (!r) return toast('Nenhum pedido em aberto.', 'erro');
+      xml = r.xml; rotulo = r.qtd + ' previsão(ões)'; nome = 'previsao-entrega-v1_' + hoje() + '.xml';
+    }
+  } catch (err) {
+    log('Estoque: XML não gerado: ' + err.message.replace(/\n/g, ' '));
+    return toast('XML fora do contrato: ' + ((err.erros && err.erros[0]) || err.message), 'erro');
+  }
+  let ok = false;
+  if (dst === 'arquivo') { baixar(nome, xml); ok = true; log('Estoque: XML baixado, ' + rotulo + '.'); regXml({ direcao: 'enviado', via: 'arquivo', xml }); }
+  else if (dst === 'socket') ok = await sockArquivo(xml, nome, destEst(), rotulo, true);
+  else {
+    const b = $('#env-ok'); b.disabled = true;
+    try {
+      const resp = await enviarApiEstoque(xml); ok = true;
+      log('Estoque: ' + rotulo + ' importado pela API: ' + resp); regXml({ direcao: 'enviado', via: 'api', xml });
+      const em = new Date().toISOString();
+      lista.forEach(x => Object.assign(x, { statusEstoque: 'ACEITO', confirmadoEm: em, divergencias: [], mensagemEstoque: 'Registrada no saldo pela API.' }));
+    } catch (err) { log('Estoque: falha na API: ' + err.message); toast(err.message.slice(0, 240), 'erro'); }
+    finally { b.disabled = false; }
+  }
+  if (!ok) return;
+  if (envioTipo === 'entradas') { const em = new Date().toISOString(); lista.forEach(x => { if (!x.enviado || dst !== 'arquivo') x.enviado = { em, formato, destino: dst }; }); }
+  salvar(); $('#dlg-envio').close(); renderTudo();
+  toast(dst === 'arquivo' ? 'Arquivo baixado.' : rotulo + ' enviada(s).', 'ok');
+};
+
+/* --- disponibilidade --- */
+function produtosConhecidos(){
+  const m = new Map(), s = est();
+  (s.saldo ? s.saldo.produtos : []).forEach(p => m.set(p.sku, { sku: p.sku, nome: p.nome, preco: p.preco }));
+  S.pedidos.forEach(p => p.itens.forEach(i => { const k = skuEst(i.sku, i.nome); if (k && !m.has(k)) m.set(k, { sku: k, nome: i.nome, preco: i.preco }); }));
+  return m;
+}
+function renderConsultas(){
+  const s = est(), conh = produtosConhecidos();
+  $('#dl-skus').innerHTML = [...conh.values()].map(p => `<option value="${esc(p.sku)}">${esc(p.nome)}</option>`).join('');
+  const pend = s.consultas.filter(c => !c.resposta).length;
+  $('#dc-meta').textContent = s.consultas.length ? s.consultas.length + ' consulta(s)' + (pend ? ', ' + pend + ' aguardando' : '') : '';
+  $('#em-cons').hidden = s.consultas.length > 0;
+  $('#tb-cons').innerHTML = s.consultas.map(c => {
+    let sit = st('Aguardando', '');
+    if (c.resposta && c.resposta.erro) sit = st('Erro', 'bad') + `<div class="sm mut">${esc(c.resposta.erro)}</div>`;
+    else if (c.resposta) sit = c.resposta.quantidadeDisponivel > 0 ? st(c.resposta.quantidadeDisponivel + ' disponível(is)', 'ok') : st('Sem saldo', 'bad');
+    const nome = (c.resposta && c.resposta.nome) || (conh.get(c.sku) || {}).nome || '';
+    return `<tr><td class="mono">${esc(c.id)}</td><td class="mono">${esc(c.sku)}${nome ? '<div class="sm mut" style="font-family:inherit">' + esc(nome) + '</div>' : ''}</td>
+      <td class="sm mut">${esc(fmtDataHora(c.criadaEm))}<div>${c.via === 'socket' ? 'via socket' : 'arquivo'}</div></td><td>${sit}</td>
+      <td><div class="acts">${!c.resposta || !c.resposta.erro ? `<button class="link" data-cped="${esc(c.id)}">Criar pedido</button>` : ''}
+        <button class="link mut" data-cxml="${esc(c.id)}">XML</button><button class="link bad" data-cdel="${esc(c.id)}">Excluir</button></div></td></tr>`;
+  }).join('');
+}
+function novaConsulta(via){
+  if (!exigeModulo()) return null;
+  const raw = $('#dc-sku').value.trim();
+  if (!raw) { $('#dc-sku').focus(); toast('Informe o código do produto.', 'erro'); return null; }
+  const s = est(), id = 'CONS-COMPRAS-' + String(s.consultaSeq + 1).padStart(6, '0');
+  let xml;
+  try { xml = EX.gerarConsultaDisponibilidade(raw, id); } catch (e) { toast('Código inválido: use letras, dígitos e hífen (ex.: MONITOR-001).', 'erro'); return null; }
+  s.consultaSeq++;
+  return { id, sku: EX.normalizarSku(raw), criadaEm: new Date().toISOString(), via, xml, resposta: null };
+}
+$('#dc-socket').onclick = async () => {
+  if (!sockPronto()) return toast('Socket desconectado. Conecte em Integrações ou use Baixar XML.', 'erro');
+  const c = novaConsulta('socket'); if (!c) return;
+  const s = est();
+  if (await sockArquivo(c.xml, 'consulta-disponibilidade_' + c.id + '.xml', destEst(), 'consulta ' + c.id + ' (' + c.sku + ')', true)) {
+    s.consultas.unshift(c); salvar(); $('#dc-sku').value = ''; renderEstoque(); toast('Consulta ' + c.id + ' enviada.', 'ok');
+  } else s.consultaSeq--;
+};
+$('#dc-baixar').onclick = () => {
+  const c = novaConsulta('arquivo'); if (!c) return;
+  est().consultas.unshift(c); baixar('consulta-disponibilidade_' + c.id + '.xml', c.xml);
+  log('Consulta de disponibilidade ' + c.id + ' gerada (' + c.sku + ').'); regXml({ direcao: 'enviado', via: 'arquivo', xml: c.xml });
+  salvar(); $('#dc-sku').value = ''; renderEstoque();
+};
+$('#dc-sku').onkeydown = e => { if (e.key === 'Enter') (sockPronto() ? $('#dc-socket') : $('#dc-baixar')).click(); };
+$('#tb-cons').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const s = est(), c = s.consultas.find(x => x.id === (b.dataset.cped || b.dataset.cxml || b.dataset.cdel)); if (!c) return;
+  if (b.dataset.cxml) baixar('consulta-disponibilidade_' + c.id + '.xml', c.xml);
+  if (b.dataset.cdel && confirm('Excluir a consulta ' + c.id + '?')) { s.consultas = s.consultas.filter(x => x !== c); salvar(); renderEstoque(); }
+  if (b.dataset.cped) { const p = produtosConhecidos().get(c.sku) || {}; abrirPedido(null, { itens: [{ sku: c.sku, nome: (c.resposta && c.resposta.nome) || p.nome || c.sku, qtd: 1, preco: Number(p.preco) || 0 }] }); }
+};
+function aplicarRespostaDisponibilidade(t, via){
+  let r;
+  try { r = EX.lerRespostaDisponibilidade(t); } catch (err) { log('Disponibilidade: resposta rejeitada (' + via + '): ' + err.message); if (via !== 'socket') toast(err.message, 'erro'); return false; }
+  const s = est(), c = s.consultas.find(x => x.id === r.idConsulta);
+  if (!c) { log('Disponibilidade: resposta ' + r.idConsulta + ' ignorada (' + via + '), consulta desconhecida.'); if (via !== 'socket') toast('A resposta ' + r.idConsulta + ' não é de uma consulta feita aqui.', 'erro'); return false; }
+  if (EX.normalizarSku(r.produtoCodigo) !== c.sku) { log('Disponibilidade: ' + r.idConsulta + ' recusada, produto diferente.'); toast('A resposta de ' + c.id + ' veio para outro produto e foi recusada.', 'erro'); return false; }
+  const nova = { nome: r.nome, quantidadeDisponivel: r.quantidadeDisponivel, erro: r.erro };
+  if (c.resposta) {
+    if (c.resposta.nome !== nova.nome || c.resposta.quantidadeDisponivel !== nova.quantidadeDisponivel || c.resposta.erro !== nova.erro) {
+      log('Disponibilidade: resposta diferente para ' + c.id + ' recusada (' + via + ').'); toast('Já havia resposta para ' + c.id + '. Faça outra consulta.', 'erro');
+    }
+    return false;
+  }
+  c.resposta = { ...nova, recebidaEm: new Date().toISOString(), via };
+  log('Disponibilidade: ' + c.id + ' respondida via ' + via + ': ' + (r.erro ? 'erro ' + r.erro : r.quantidadeDisponivel + ' disponível(is)') + '.');
+  salvar(); estAba = 'consultas'; renderTudo();
+  toast(r.erro ? 'Estoque: ' + r.erro : 'Estoque: ' + r.quantidadeDisponivel + ' unidade(s) de ' + (r.nome || c.sku) + '.', r.erro ? 'erro' : 'ok');
+  return true;
+}
+
+/* --- API do Estoque (pela ponte quando disponível, para evitar CORS) --- */
+async function apiEstoque(caminho, metodo, corpo){
+  const url = (est().apiUrl || API_PADRAO).replace(/\/+$/, '') + caminho;
+  if (sock.http && sock.versao >= 3) {
+    const r = await fetch(ponte() + '/proxy?url=' + encodeURIComponent(url) + '&metodo=' + metodo, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo || '' });
+    const j = await r.json();
+    if (!j.ok) throw new Error('não consegui falar com o Estoque: ' + j.erro);
+    return { status: j.status, corpo: j.corpo };
+  }
+  const r = await fetch(url, metodo === 'POST' ? { method: 'POST', headers: { 'Content-Type': 'application/xml' }, body: corpo } : { headers: { Accept: 'application/xml' } });
+  return { status: r.status, corpo: await r.text() };
+}
+const resumoApi = t => { try { const j = JSON.parse(t); return j.mensagem || j.message || j.erro || j.error || JSON.stringify(j).slice(0, 300); } catch (e) { return String(t || '').replace(/\s+/g, ' ').slice(0, 300); } };
+async function enviarApiEstoque(xml){
+  const v = await apiEstoque('/api/xml/validar', 'POST', xml);
+  if (v.status >= 400) throw new Error('o Estoque recusou na validação (' + v.status + '): ' + resumoApi(v.corpo));
+  const i = await apiEstoque('/api/xml', 'POST', xml);
+  if (i.status >= 400) throw new Error('o Estoque recusou a importação (' + i.status + '): ' + resumoApi(i.corpo));
+  return resumoApi(i.corpo);
+}
+async function enviarEntradasApi(lista, origem){
+  if (!lista.length) return { ok: true, n: 0 };
+  if (!exigeModulo()) return { ok: false };
+  let xml;
+  try { xml = xmlEntradas(lista.slice().reverse(), 'v2'); }
+  catch (err) { log('Estoque: entrada não enviada (' + origem + '), XML inválido: ' + err.message.replace(/\n/g, ' ')); toast('A entrada não foi: ' + ((err.erros && err.erros[0]) || err.message), 'erro'); return { ok: false }; }
+  try {
+    const resp = await enviarApiEstoque(xml), em = new Date().toISOString();
+    lista.forEach(x => Object.assign(x, { enviado: { em, formato: 'v2', destino: 'api' }, statusEstoque: 'ACEITO', confirmadoEm: em, divergencias: [], mensagemEstoque: 'Registrada no saldo pela API.' }));
+    log('Estoque: ' + lista.length + ' entrada(s) registrada(s) (' + origem + '): ' + resp);
+    regXml({ direcao: 'enviado', via: 'api', xml }); salvar(); renderTudo();
+    return { ok: true, n: lista.length };
+  } catch (err) {
+    log('Estoque: entrada pendente (' + origem + '): ' + err.message); toast(('Entrada ficou pendente: ' + err.message).slice(0, 240), 'erro');
+    return { ok: false };
+  }
+}
+async function atualizarSaldoSilencioso(){ try { const r = await apiEstoque('/api/xml', 'GET'); if (r.status < 400) aplicarXmlEstoque(r.corpo, 'api'); } catch (e) {} }
+let enviandoAuto = false;
+async function entradaAutomatica(){
+  if (!$('#fr-auto').checked || enviandoAuto) return;
+  enviandoAuto = true;
+  try { const r = await enviarEntradasApi(est().entradas.filter(x => !x.enviado), 'ao receber'); if (r.ok && r.n) { toast(r.n + ' entrada(s) no saldo do Estoque.', 'ok'); await atualizarSaldoSilencioso(); } }
+  finally { enviandoAuto = false; }
+}
+$('#est-buscar').onclick = async () => {
+  if (!exigeModulo()) return;
+  toast('Buscando saldo no Estoque…');
+  try {
+    const r = await apiEstoque('/api/xml', 'GET');
+    if (r.status >= 400) throw new Error('o Estoque respondeu ' + r.status + ': ' + resumoApi(r.corpo));
+    aplicarXmlEstoque(r.corpo, 'api');
+  } catch (err) { log('Estoque: falha ao buscar saldo: ' + err.message); toast('Não consegui buscar o saldo: ' + err.message, 'erro'); }
+};
+
+/* --- XML recebido do Estoque (arquivo, socket, API) --- */
+const RE_CONF = /<([\w.-]+:)?confirmacaoRecebimento[\s>]/;
+const RE_DISP = /<([\w.-]+:)?respostaDisponibilidade[\s>]/;
+function aplicarXmlEstoque(text, via){
+  if (!EX) { if (via !== 'socket') exigeModulo(); return false; }
+  const t = String(text || '').replace(/^﻿/, ''), s = est();
+  if (RE_DISP.test(t)) return aplicarRespostaDisponibilidade(t, via);
+  try {
+    if (RE_CONF.test(t) || /urn:compras:(recebimento|previsao-entrega):1\.0/.test(t)) {
+      const msg = EX.lerComprasEstoque(t);
+      if (msg.tipo !== 'confirmacao') { if (via !== 'socket') toast('Esse XML é um envio do próprio Compras, não a confirmação do Estoque.', 'erro'); return false; }
+      if (msg.erro) { log('Estoque: confirmação com erro (' + via + '): ' + msg.erro); toast('O Estoque não processou: ' + msg.erro, 'erro'); return true; }
+      const mud = EX.aplicarConfirmacao(s.entradas, msg).filter(m => !m.aviso);
+      if (!mud.length) { log('Estoque: confirmação ignorada (' + via + '), nenhuma entrada correspondente.'); if (via !== 'socket') toast('A confirmação não corresponde a nenhuma entrada.', 'erro'); return false; }
+      const prob = mud.filter(m => m.para === 'DIVERGENTE' || m.para === 'REJEITADO').length;
+      log('Estoque: confirmação (' + via + ') para ' + mud.length + ' entrada(s)' + (prob ? ', ' + prob + ' com problema' : '') + '.');
+      salvar(); estAba = 'entradas'; renderTudo();
+      toast('Estoque confirmou ' + mud.length + ' entrada(s)' + (prob ? ', ' + prob + ' com divergência ou rejeição.' : '.'), prob ? 'erro' : 'ok');
+      return true;
+    }
+    if (/<estoque[\s>]/.test(t)) {
+      const d = EX.lerXml(t);
+      if (via === 'socket' && d.cabecalho.sistemaOrigem && d.cabecalho.sistemaOrigem !== 'ESTOQUE') return false;
+      if (!d.produtos.length) { if (via !== 'socket') toast('O XML do Estoque não traz produtos.', 'erro'); return false; }
+      s.saldo = { geradoEm: d.cabecalho.geradoEm, loteId: d.cabecalho.loteId, recebidoEm: new Date().toISOString(), via,
+        produtos: d.produtos.map(p => ({ sku: p.sku, nome: p.nome, descricao: p.descricao, quantidade: p.quantidade || 0, estoqueMinimo: p.estoqueMinimo || 0, preco: p.preco || 0, finalidade: p.finalidade || 'VENDA' })) };
+      sel.clear();
+      const baixos = s.saldo.produtos.filter(p => situacao(p) !== 'ok').length;
+      log('Estoque: saldo atualizado (' + via + '): ' + s.saldo.produtos.length + ' produto(s), ' + baixos + ' no mínimo ou abaixo.');
+      salvar(); estAba = 'saldo'; renderTudo();
+      toast('Saldo atualizado: ' + s.saldo.produtos.length + ' produto(s).', 'ok');
+      return true;
+    }
+    throw new Error('Não é um XML do Estoque: esperado <estoque>, <confirmacaoRecebimento> ou <respostaDisponibilidade>.');
+  } catch (err) { log('Estoque: XML rejeitado (' + via + '): ' + err.message); if (via !== 'socket') toast(err.message, 'erro'); return false; }
+}
+$('#est-importar').onclick = () => { if (exigeModulo()) $('#f-est').click(); };
+lerArquivo($('#f-est'), t => aplicarXmlEstoque(t, 'arquivo'));
+
+/* =============================================================================
+   FINANCEIRO (Finanweb)
+   ========================================================================== */
+function gerarSaida(){
+  const c = S.config;
+  if (!c.empresa || !/^\d{14}$/.test(c.cnpj || '') || !c.usuario) { empresaOk(); return null; }
+  const desp = [], pulados = [];
+  S.pedidos.forEach(p => {
+    const doc = docForn(p.fornecedor), nome = txt120(p.fornecedor);
+    if (!nome || !doc) { pulados.push(p.num); return; }
+    const emissao = isoOk(p.emissao) ? p.emissao : hoje();
+    const venc = p.fin === 'Pago'
+      ? (isoOk(p.pagoEm) ? p.pagoEm : (isoOk(p.vencimento) && p.vencimento <= hoje() ? p.vencimento : hoje()))
+      : (isoOk(p.vencimento) ? p.vencimento : somaDias(emissao, 30));
+    desp.push({ ref: p.num, status: p.fin === 'Pago' ? 'CONFIRMADO' : 'PENDENTE', nome, doc, cat: txt120(p.categoria) || 'Mercadorias', valor: totalPedido(p), pag: txt120(p.formaPag) || 'Boleto', emissao, venc });
+  });
+  if (!desp.length) { toast('Nenhum pedido exportável: cadastre o CPF/CNPJ dos fornecedores.', 'erro'); return null; }
+  const tot = desp.reduce((s, d) => s + centavos(d.valor), 0);
+  const L = ['<?xml version="1.0" encoding="UTF-8"?>', '<movimento xmlns="' + NS_SAIDA + '" versao="2.0" tipo="SAIDA">', '  <cabecalho>',
+    '    <empresa>' + xmlEsc(c.empresa) + '</empresa>', '    <cnpj>' + c.cnpj + '</cnpj>', '    <origem>' + ORIGEM + '</origem>',
+    '    <dataArquivo>' + hoje() + '</dataArquivo>', '    <usuario>' + xmlEsc(c.usuario) + '</usuario>', '  </cabecalho>', '  <despesas>'];
+  desp.forEach(d => L.push('    <despesa referencia="' + xmlEsc(d.ref) + '" status="' + d.status + '">',
+    '      <fornecedor documento="' + d.doc + '">' + xmlEsc(d.nome) + '</fornecedor>', '      <categoria>' + xmlEsc(d.cat) + '</categoria>',
+    '      <valor>' + dec2(d.valor) + '</valor>', '      <formaPagamento>' + xmlEsc(d.pag) + '</formaPagamento>',
+    '      <dataEmissao>' + d.emissao + '</dataEmissao>', '      <vencimento>' + d.venc + '</vencimento>', '    </despesa>'));
+  L.push('  </despesas>', '  <totalizador>', '    <qtdRegistros>' + desp.length + '</qtdRegistros>', '    <valorTotalGeral>' + (tot / 100).toFixed(2) + '</valorTotalGeral>', '  </totalizador>', '</movimento>');
+  return { xml: L.join('\n') + '\n', qtd: desp.length, total: tot / 100, pulados };
+}
+const resumoSaida = r => r.qtd + ' despesa(s), ' + money(r.total) + (r.pulados.length ? '; sem CPF/CNPJ: ' + r.pulados.join(', ') : '');
+$('#fin-saida').onclick = () => {
+  const r = gerarSaida(); if (!r) return;
+  baixar('saida-v2_' + hoje() + '.xml', r.xml); regXml({ direcao: 'enviado', via: 'arquivo', xml: r.xml });
+  log('XML saida-v2 baixado (' + resumoSaida(r) + ').'); toast(r.qtd + ' despesa(s) exportada(s).' + (r.pulados.length ? ' ' + r.pulados.length + ' sem CPF/CNPJ ficaram de fora.' : ''), 'ok');
+};
+$('#fin-saida-sock').onclick = async () => {
+  const r = gerarSaida(); if (!r) return;
+  if (await sockArquivo(r.xml, 'saida-v2_' + hoje() + '_' + Date.now().toString(36) + '.xml', destFin(), 'saida-v2 (' + resumoSaida(r) + ')'))
+    toast(r.qtd + ' despesa(s) enviada(s). O Finanweb responde no chat.', 'ok');
+};
+$('#fin-consulta').onclick = () => {
+  const s = $('#cons-forn');
+  s.innerHTML = '<option value="">Todos os fornecedores</option>' + S.fornecedores.filter(f => docValido(soDigitos(f.cnpj)))
+    .sort((a, b) => a.nome.localeCompare(b.nome)).map(f => `<option value="${soDigitos(f.cnpj)}">${esc(f.nome)} · ${esc(fmtDoc(f.cnpj))}</option>`).join('');
+  abrir('#dlg-cons');
+};
+function gerarConsulta(){
+  const doc = $('#cons-forn').value;
+  S.consultaSeq = (S.consultaSeq || 0) + 1;
+  const id = 'compras-' + String(S.consultaSeq).padStart(6, '0');
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<consultaPendencias xmlns="' + NS_PEND + '" versao="1.0" id="' + id + '">\n  <origem>' + ORIGEM + '</origem>\n' +
+    (doc ? '  <documento>' + doc + '</documento>\n' : '') + '</consultaPendencias>\n';
+  S.consultas.unshift({ id, documento: doc, ts: new Date().toLocaleString('pt-BR') }); S.consultas = S.consultas.slice(0, 50);
+  return { id, xml, alvo: doc ? fmtDoc(doc) : 'todos' };
+}
+$('#cons-baixar').onclick = () => {
+  const c = gerarConsulta(); baixar('consulta-pendencias_' + c.id + '.xml', c.xml); regXml({ direcao: 'enviado', via: 'arquivo', xml: c.xml });
+  log('Consulta de pendências ' + c.id + ' gerada (' + c.alvo + ').'); salvar(); $('#dlg-cons').close(); renderFin();
+};
+$('#cons-enviar').onclick = async () => {
+  if (!sockPronto()) return toast('Socket desconectado. Conecte em Integrações.', 'erro');
+  const c = gerarConsulta(); salvar(); $('#dlg-cons').close(); renderFin();
+  if (await sockArquivo(c.xml, 'consulta-pendencias_' + c.id + '.xml', destFin(), 'consulta ' + c.id + ' (' + c.alvo + ')')) toast('Consulta ' + c.id + ' enviada.', 'ok');
+};
+function lerRespostaPendencias(text){
+  const doc = new DOMParser().parseFromString(text.replace(/^﻿/, ''), 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('XML mal formado.');
+  const root = doc.documentElement;
+  if (root.localName !== 'respostaPendencias' || root.namespaceURI !== NS_PEND) throw new Error('Não é uma respostaPendencias (' + NS_PEND + ').');
+  if (root.getAttribute('versao') !== '1.0') throw new Error('Versão não suportada.');
+  const kids = (p, n) => p ? [...p.children].filter(c => c.localName === n && c.namespaceURI === NS_PEND) : [];
+  const kid = (p, n) => kids(p, n)[0] || null, tx = n => n ? n.textContent.trim() : '';
+  const id = root.getAttribute('id') || ''; if (!id) throw new Error('Resposta sem id.');
+  const dataConsulta = tx(kid(root, 'dataConsulta')); if (!isoOk(dataConsulta)) throw new Error('dataConsulta inválida.');
+  const erro = kid(root, 'erro'); if (erro) return { id, dataConsulta, erro: tx(erro), itens: [], avisos: [] };
+  const pend = kid(root, 'pendencias'); if (!pend) throw new Error('Resposta sem <pendencias>.');
+  const avisos = [];
+  const itens = kids(pend, 'pendencia').map((n, i) => {
+    const fn = kid(n, 'fornecedor');
+    const it = { referencia: n.getAttribute('referencia') || '', fornecedor: tx(fn), documento: fn ? fn.getAttribute('documento') || '' : '',
+      categoria: tx(kid(n, 'categoria')), valor: parseFloat(tx(kid(n, 'valor'))), vencimento: tx(kid(n, 'vencimento')) };
+    if (!it.fornecedor) avisos.push('pendência ' + (i + 1) + ' sem fornecedor');
+    if (isNaN(it.valor)) { avisos.push('pendência ' + (i + 1) + ' com valor inválido'); it.valor = 0; }
+    if (!isoOk(it.vencimento)) avisos.push('pendência ' + (i + 1) + ' com vencimento inválido');
+    return it;
+  });
+  const tot = kid(root, 'totalizador'), soma = itens.reduce((s, i) => s + centavos(i.valor), 0);
+  if (!tot) avisos.push('sem totalizador');
+  else {
+    const q = parseInt(tx(kid(tot, 'qtdPendencias')), 10), v = parseFloat(tx(kid(tot, 'valorTotal')));
+    if (q !== itens.length) avisos.push('totalizador diz ' + q + ', vieram ' + itens.length);
+    if (centavos(v) !== soma) avisos.push('valorTotal difere da soma');
+  }
+  return { id, dataConsulta, itens, valorTotal: soma / 100, avisos };
+}
+function aplicarRespostaPendencias(text, via){
+  let r;
+  try { r = lerRespostaPendencias(text); } catch (err) { log('Resposta de pendências (' + via + ') rejeitada: ' + err.message); if (via !== 'socket') toast(err.message, 'erro'); return false; }
+  if (!S.consultas.some(c => c.id === r.id)) {
+    if (via === 'socket') { log('Socket: respostaPendencias ' + r.id + ' ignorada (não é nossa).'); return false; }
+    r.avisos.unshift('id ' + r.id + ' não corresponde a nenhuma consulta daqui');
+  }
+  S.pendencias = r;
+  if (r.erro) { log('Financeiro respondeu ' + r.id + ' com erro: ' + r.erro); salvar(); renderTudo(); toast('Financeiro: ' + r.erro, 'erro'); return true; }
+  let comp = 0;
+  r.itens.forEach(it => { if (!docValido(it.documento)) return; const f = acharForn(it.fornecedor); if (f && !docValido(soDigitos(f.cnpj))) { f.cnpj = it.documento; comp++; } });
+  log('Resposta ' + r.id + ' (' + via + '): ' + r.itens.length + ' pendência(s), ' + money(r.valorTotal) + '.' + (comp ? ' CPF/CNPJ completado em ' + comp + ' fornecedor(es).' : '') + (r.avisos.length ? ' Avisos: ' + r.avisos.join('; ') + '.' : ''));
+  salvar(); renderTudo(); toast(r.itens.length + ' pendência(s) carregada(s).', r.avisos.length ? 'info' : 'ok');
+  return true;
+}
+function aplicarAvisoPagamento(text, via){
+  const nega = m => { log('Aviso de pagamento (' + via + ') ignorado: ' + m); if (via !== 'socket') toast(m, 'erro'); return false; };
+  const doc = new DOMParser().parseFromString(String(text).replace(/^﻿/, ''), 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) return nega('XML mal formado.');
+  const r = doc.documentElement;
+  if (r.localName !== 'avisoPagamento' || r.namespaceURI !== NS_AVISO) return nega('não é um avisoPagamento.');
+  const tx = n => { const e = [...r.children].find(c => c.localName === n); return e ? e.textContent.trim() : ''; };
+  const id = r.getAttribute('id') || '', origem = tx('origem'), ref = tx('referencia'), sit = tx('situacao').toUpperCase();
+  if (origem && origem !== ORIGEM) return nega('aviso para outro setor (' + origem + ').');
+  if (id && S.avisos.includes(id)) return nega('aviso ' + id + ' já aplicado.');
+  const p = S.pedidos.find(x => x.num === ref); if (!p) return nega('a compra ' + ref + ' não existe aqui.');
+  const antes = p.fin;
+  if (sit === 'PAGO') Object.assign(p, { fin: 'Pago', pagoEm: tx('dataPagamento') || hoje(), valorPago: parseFloat(tx('valor')) || undefined, avisoFin: 'PAGO' });
+  else if (sit === 'CANCELADO') { p.avisoFin = 'CANCELADO'; if (p.fin === 'Pago') p.fin = 'Pendente'; }
+  else return nega('situação desconhecida "' + sit + '".');
+  if (id) { S.avisos.unshift(id); S.avisos = S.avisos.slice(0, 500); }
+  log('Financeiro (' + via + '): compra ' + ref + ' ' + (sit === 'PAGO' ? 'paga' : 'cancelada') + '. ' + antes + ' → ' + p.fin + '.');
+  salvar(); renderTudo(); toast(sit === 'PAGO' ? 'Financeiro pagou ' + ref + '.' : 'Financeiro cancelou ' + ref + '.', sit === 'PAGO' ? 'ok' : 'erro');
+  return true;
+}
+$('#fin-resposta').onclick = () => $('#f-fin').click();
+lerArquivo($('#f-fin'), t => (/avisoPagamento/.test(t) ? aplicarAvisoPagamento : aplicarRespostaPendencias)(t, 'arquivo'));
+function renderFin(){
+  const c = S.config, pr = S.pendencias, partes = [];
+  partes.push(c.empresa ? 'Empresa <b>' + esc(c.empresa) + '</b> (' + esc(fmtDoc(c.cnpj)) + '), usuário ' + esc(c.usuario) + '.'
+    : '<b style="color:var(--warn)">Dados da empresa não preenchidos</b> (Integrações).');
+  if (S.consultas.length) partes.push('Última consulta: <span class="mono">' + esc(S.consultas[0].id) + '</span>.');
+  if (pr) partes.push('Resposta <span class="mono">' + esc(pr.id) + '</span> de ' + fmtData(pr.dataConsulta) + (pr.erro ? ', erro: ' + esc(pr.erro) : ': ' + pr.itens.length + ' pendência(s), <b>' + money(pr.valorTotal) + '</b>') + '.' + (pr.avisos && pr.avisos.length ? ' Avisos: ' + esc(pr.avisos.join('; ')) + '.' : ''));
+  $('#fin-resumo').innerHTML = partes.join(' ');
+  const itens = pr && !pr.erro ? pr.itens : [];
+  $('#em-fin').hidden = itens.length > 0;
+  $('#tb-fin').innerHTML = itens.map(p => {
+    const venc = isoOk(p.vencimento) && p.vencimento < pr.dataConsulta;
+    return `<tr><td class="mono">${esc(p.referencia) || '—'}</td><td>${esc(p.fornecedor)}</td><td class="mut">${p.documento ? esc(fmtDoc(p.documento)) : '—'}</td>
+      <td>${esc(p.categoria) || '—'}</td><td class="r">${money(p.valor)}</td><td>${esc(fmtData(p.vencimento))}</td><td>${st(venc ? 'Vencida' : 'A vencer', venc ? 'bad' : 'info')}</td></tr>`;
+  }).join('');
+}
+
+/* =============================================================================
+   FORNECEDORES
+   ========================================================================== */
+let fornEd = null;
+function renderForn(){
+  recalcUsos();
+  const lista = [...S.fornecedores].sort((a, b) => (b.cadastrado - a.cadastrado) || a.nome.localeCompare(b.nome));
+  $('#em-forn').hidden = lista.length > 0;
+  $('#tb-forn').innerHTML = lista.map(f => `<tr><td>${esc(f.nome)}</td>
+    <td>${f.cnpj ? esc(fmtDoc(f.cnpj)) : st('Sem CPF/CNPJ', 'warn')}</td><td class="mut">${esc(f.contato) || '—'}</td><td class="r">${f.usos || 0}</td>
+    <td>${f.cadastrado ? st('Cadastrado', 'ok') : st('Avulso ' + f.usos + '/' + PROMO, '')}</td>
+    <td><div class="acts"><button class="link" data-fed="${f.id}">Editar</button><button class="link bad" data-fdel="${f.id}">Excluir</button></div></td></tr>`).join('');
+}
+function abrirForn(f = null){
+  fornEd = f; $('#fn-titulo').textContent = f ? 'Editar fornecedor' : 'Novo fornecedor';
+  $('#fn-nome').value = f ? f.nome : ''; $('#fn-doc').value = f && f.cnpj ? fmtDoc(f.cnpj) : ''; $('#fn-contato').value = f ? f.contato || '' : '';
+  abrir('#dlg-forn', f ? '#fn-doc' : '#fn-nome');
+}
+$('#forn-novo').onclick = () => abrirForn();
+$('#fn-salvar').onclick = () => {
+  const nome = padronizaNome($('#fn-nome').value); if (!nome) return toast('Informe o nome.', 'erro');
+  const raw = $('#fn-doc').value.trim(), cnpj = soDigitos(raw), contato = $('#fn-contato').value.trim();
+  if (raw && !docValido(cnpj)) return toast('CPF/CNPJ deve ter 11 ou 14 dígitos.', 'erro');
+  const ex = acharForn(nome);
+  if (fornEd) {
+    if (ex && ex !== fornEd) return toast('Já existe um fornecedor com esse nome.', 'erro');
+    const antigo = fornEd.nome;
+    Object.assign(fornEd, { nome, cnpj, contato, manual: true, cadastrado: true });
+    if (chave(antigo) !== chave(nome)) S.pedidos.forEach(p => { if (chave(p.fornecedor) === chave(antigo)) p.fornecedor = nome; });
+  } else if (ex) Object.assign(ex, { cnpj: cnpj || ex.cnpj, contato: contato || ex.contato, manual: true, cadastrado: true });
+  else S.fornecedores.push({ id: uid(), nome, cnpj, contato, usos: 0, cadastrado: true, manual: true });
+  log('Fornecedor "' + nome + '" salvo.'); recalcUsos(); salvar(); $('#dlg-forn').close(); renderTudo(); toast('Fornecedor salvo.', 'ok');
+};
+$('#tb-forn').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.fed) abrirForn(S.fornecedores.find(f => f.id === b.dataset.fed));
+  if (b.dataset.fdel) {
+    const f = S.fornecedores.find(f => f.id === b.dataset.fdel);
+    if (!confirm('Excluir o fornecedor "' + f.nome + '"? Os pedidos mantêm o nome como texto.')) return;
+    S.fornecedores = S.fornecedores.filter(x => x !== f); log('Fornecedor "' + f.nome + '" excluído.'); salvar(); renderForn();
+  }
+};
+
+/* =============================================================================
+   INTEGRAÇÕES: empresa, API, socket (ponte-socket.js)
+   ========================================================================== */
+function renderIntegracoes(){
+  const c = S.config;
+  $('#cfg-empresa').value = c.empresa || ''; $('#cfg-cnpj').value = c.cnpj ? fmtDoc(c.cnpj) : ''; $('#cfg-usuario').value = c.usuario || '';
+  $('#api-url').value = est().apiUrl || API_PADRAO;
+  $('#sock-url').value = S.socket.url; $('#sock-dest-fin').value = S.socket.destFin; $('#sock-dest-est').value = S.socket.destEst;
+  renderSock();
+}
+$('#cfg-salvar').onclick = () => {
+  const empresa = txt120($('#cfg-empresa').value), cnpj = soDigitos($('#cfg-cnpj').value), usuario = txt120($('#cfg-usuario').value);
+  if (!empresa) return toast('Informe a empresa.', 'erro');
+  if (!/^\d{14}$/.test(cnpj)) return toast('O CNPJ deve ter 14 dígitos.', 'erro');
+  if (!usuario) return toast('Informe o usuário.', 'erro');
+  S.config = { empresa, cnpj, usuario }; log('Dados da empresa atualizados.'); salvar(); toast('Dados da empresa salvos.', 'ok');
+};
+$('#api-salvar').onclick = () => {
+  const v = $('#api-url').value.trim().replace(/\/+$/, '');
+  if (v && !/^https?:\/\/\S+$/i.test(v)) return toast('Use um endereço com http:// ou https://', 'erro');
+  if (/finanweb/i.test(v)) return toast('Esse é o Financeiro. Aqui vai a API do Estoque.', 'erro');
+  if (/\/(contratos|integracoes|api)(\/|$)/i.test(v)) return toast('Use só o endereço base, sem /api.', 'erro');
+  est().apiUrl = v === API_PADRAO ? '' : v; salvar(); log('Estoque: API definida como ' + (v || API_PADRAO) + '.'); toast('Endereço salvo.', 'ok');
+};
+$('#api-testar').onclick = async () => {
+  try { const r = await apiEstoque('/api/xml', 'GET'); toast(r.status < 400 ? 'API respondeu ' + r.status + '.' : 'API respondeu ' + r.status + ': ' + resumoApi(r.corpo), r.status < 400 ? 'ok' : 'erro'); }
+  catch (e) { toast('Sem resposta: ' + e.message + '. Se for CORS, abra a ponte.', 'erro'); }
+};
+
+const sock = { es: null, http: false, tcp: false, alvo: '', linhas: [], versao: 0, dir: [] };
+const ponte = () => (S.socket.url || PONTE_PADRAO).replace(/\/+$/, '');
+const sockPronto = () => sock.http && sock.tcp;
+const destino = s => { const v = String(s || '').trim(); return !v ? '' : (v.startsWith('#') ? v : '#' + v); };
+const destFin = () => destino(S.socket.destFin) || '#finanweb';
+const destEst = () => destino(S.socket.destEst) || '#sistema-de-estoque';
+function sockLinha(dir, t){ sock.linhas.unshift({ ts: new Date().toLocaleTimeString('pt-BR'), dir, texto: t }); sock.linhas = sock.linhas.slice(0, 300); if (!$('#v-integracoes').hidden) renderSock(); }
+function sockConectar(){
+  sockDesconectar(true);
+  try { sock.es = new EventSource(ponte() + '/eventos'); } catch (e) { return toast('Endereço da ponte inválido.', 'erro'); }
+  sockLinha('sys', 'Conectando em ' + ponte() + '…');
+  sock.es.onopen = () => {
+    sock.http = true; statusSock();
+    fetch(ponte() + '/status').then(r => r.json()).then(j => {
+      sock.versao = j.versao || (j.arquivos ? 2 : 1);
+      $('#sock-ver').textContent = sock.versao >= 7 ? 'Ponte v' + sock.versao + (j.nome ? ' · ' + j.nome : '') : 'Ponte antiga: atualize para a v7';
+      if (sock.versao < 7) toast('A ponte-socket.js está desatualizada: use a v7.', 'erro');
+      else if (j.nomeDesejado && j.nome && j.nome !== j.nomeDesejado) toast('Conectado como ' + j.nome + ' (' + j.nomeDesejado + ' ocupado). A ponte recupera o nome sozinha.');
+      renderDir(j.diretorio || []);
+    }).catch(() => {});
+  };
+  sock.es.onerror = () => { if (sock.http) sockLinha('sys', 'Ponte fora do ar. Tentando de novo…'); sock.http = sock.tcp = false; statusSock(); };
+  sock.es.addEventListener('status', e => { const d = JSON.parse(e.data); sock.http = true; sock.tcp = !!d.conectado; sock.alvo = d.host + ':' + d.port; if (d.msg) sockLinha('sys', d.msg); statusSock(); });
+  sock.es.addEventListener('diretorio', e => renderDir(JSON.parse(e.data)));
+  sock.es.addEventListener('arquivo', e => { const a = JSON.parse(e.data); sockLinha('in', '[arquivo ' + a.nome + ' de ' + a.de + ', ' + a.bytes + ' bytes]'); receberArquivo(a); });
+  sock.es.addEventListener('linha', e => { const t = JSON.parse(e.data); sockLinha('in', t); receberLinha(t); });
+}
+function sockDesconectar(silencioso){
+  if (sock.es) { sock.es.close(); sock.es = null; if (!silencioso) sockLinha('sys', 'Desconectado.'); }
+  sock.http = sock.tcp = false; statusSock();
+}
+async function sockEnviar(t, rotulo){
+  const linha = String(t ?? '').replace(/\r?\n/g, ' ').trim(); if (!linha) return false;
+  if (!sockPronto()) { toast('Socket desconectado. Conecte em Integrações.', 'erro'); return false; }
+  try {
+    const r = await fetch(ponte() + '/enviar', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: linha });
+    const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.erro || 'HTTP ' + r.status);
+    sockLinha('out', linha); log('Socket: enviado ' + (rotulo || 'mensagem') + '.');
+    if (linha[0] === '<') regXml({ direcao: 'enviado', via: 'socket', xml: linha });
+    return true;
+  } catch (e) { toast('Falha no socket: ' + e.message, 'erro'); log('Socket: falha ao enviar ' + (rotulo || 'mensagem') + ': ' + e.message); return false; }
+}
+// XML como ARQUIVO pelo servidor da turma (a ponte quebra em pedaços e fecha com o pedaço de tamanho 0)
+async function sockArquivo(conteudo, nome, para, rotulo, usarId){
+  if (!sockPronto()) { toast('Socket desconectado. Abra a ponte e conecte em Integrações.', 'erro'); return false; }
+  const arq = nome.replace(/[^\w.-]+/g, '-');
+  try {
+    const r = await fetch(ponte() + '/arquivo?para=' + encodeURIComponent(para) + '&nome=' + encodeURIComponent(arq) + (usarId ? '&id=1' : ''),
+      { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: conteudo });
+    if (r.status === 404) throw new Error('ponte-socket.js desatualizada (sem suporte a arquivos)');
+    const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.erro || 'HTTP ' + r.status);
+    const real = j.para || para;
+    if (usarId && !/^#\d+$/.test(real)) toast('Enviado para ' + real + ' pelo nome: ID do setor ainda desconhecido. Se não chegar, clique em Atualizar IDs.');
+    sockLinha('out', '[arquivo ' + arq + ' → ' + real + ', ' + j.bytes + ' bytes]');
+    log('Socket: arquivo ' + arq + ' enviado para ' + real + ' (' + (rotulo || 'XML') + ').');
+    regXml({ direcao: 'enviado', via: 'socket', xml: conteudo });
+    return true;
+  } catch (e) { toast('Falha ao enviar o arquivo: ' + e.message, 'erro'); log('Socket: falha ao enviar ' + arq + ' para ' + para + ': ' + e.message); return false; }
+}
+function rotearXml(t, via){
+  if (/<([\w.-]+:)?respostaPendencias[\s>]/.test(t)) return aplicarRespostaPendencias(t, via);
+  if (/<([\w.-]+:)?avisoPagamento[\s>]/.test(t)) return aplicarAvisoPagamento(t, via);
+  if (RE_CONF.test(t) || RE_DISP.test(t) || (/<estoque[\s>]/.test(t) && t.includes('<produtos'))) return aplicarXmlEstoque(t, via);
+  return false;
+}
+function receberArquivo(a){ rotearXml(String(a.conteudo || ''), 'socket'); }
+function receberLinha(t){
+  if (/^\[servidor\]/i.test(t) && /n[aã]o (encontrad|existe|conectad)|inexistente|inv[aá]lid|erro|falh/i.test(t)) { log('Socket: aviso do servidor: ' + t); toast('Servidor: ' + t.replace(/^\[servidor\]\s*/i, '').slice(0, 200), 'erro'); }
+  if (t[0] !== '<' && /finanweb|sistema-de-estoque/i.test(t) && /aceit|recus|inv[aá]lid|erro|process/i.test(t)) {
+    const de = /finanweb/i.test(t) ? 'Financeiro' : 'Estoque';
+    log('Socket: ' + de + ' respondeu: ' + t); toast(de + ': ' + t.replace(/^.*?:\s*/, '').slice(0, 180), /recus|inv[aá]lid|erro/i.test(t) ? 'erro' : 'ok');
+  }
+  const i = t.indexOf('<'), f = t.lastIndexOf('>');
+  if (i >= 0 && f > i) rotearXml(t.slice(i, f + 1), 'socket');
+}
+function statusSock(){
+  const ok = sockPronto(), txt = ok ? 'Conectado · ' + sock.alvo : sock.http ? 'Ponte ok, servidor offline' : 'Desconectado', cls = ok ? 'ok' : sock.http ? 'warn' : '';
+  $('#sock-status').className = 'st ' + cls; $('#sock-status').textContent = txt;
+  $('#pill-sock').className = 'st ' + cls; $('#pill-sock').textContent = 'Socket: ' + txt;
+}
+function renderSock(){
+  $('#em-sock').hidden = sock.linhas.length > 0;
+  const rot = { in: ['Recebido', 'info'], out: ['Enviado', 'ok'], sys: ['Sistema', ''] };
+  $('#tb-sock').innerHTML = sock.linhas.map(l => `<tr><td class="sm mut">${esc(l.ts)}</td><td>${st(rot[l.dir][0], rot[l.dir][1])}</td>
+    <td class="mono" style="word-break:break-all">${esc(l.texto.length > 400 ? l.texto.slice(0, 400) + '…' : l.texto)}</td></tr>`).join('');
+}
+function renderDir(lista){
+  sock.dir = lista || [];
+  const alvo = [destFin(), destEst()].map(d => d.slice(1).toLowerCase());
+  $('#sock-dir').innerHTML = sock.dir.length
+    ? sock.dir.filter(d => !/^cliente\d+$/i.test(d.nome)).map(d => `<span class="chip" ${alvo.includes(d.nome.toLowerCase()) ? 'style="border-color:var(--ok);color:var(--ok)"' : ''}>${esc(d.nome)} → #${esc(d.id)}</span>`).join('')
+    : '<span class="hint">Nenhum ID conhecido. Clique em Atualizar IDs.</span>';
+}
+$('#sock-conectar').onclick = () => { S.socket.url = $('#sock-url').value.trim() || PONTE_PADRAO; salvar(); sockConectar(); };
+$('#sock-desconectar').onclick = () => sockDesconectar();
+$('#sock-enviar').onclick = async () => { if (await sockEnviar($('#sock-msg').value, 'mensagem livre')) $('#sock-msg').value = ''; };
+$('#sock-msg').onkeydown = e => { if (e.key === 'Enter') $('#sock-enviar').click(); };
+$('#sock-limpar').onclick = () => { sock.linhas = []; renderSock(); };
+$('#sock-lista').onclick = async () => {
+  if (!sockPronto()) return toast('Socket desconectado.', 'erro');
+  try { await fetch(ponte() + '/lista', { method: 'POST' }); toast('Lista pedida ao servidor.'); } catch (e) { toast('A ponte não respondeu.', 'erro'); }
+};
+$('#sock-dest-salvar').onclick = () => {
+  const f = destino($('#sock-dest-fin').value), e = destino($('#sock-dest-est').value);
+  if (!f || !e || /\s/.test(f + e)) return toast('Informe os dois destinos, sem espaços.', 'erro');
+  Object.assign(S.socket, { destFin: f, destEst: e }); salvar(); log('Socket: destinos ' + f + ' e ' + e + '.'); toast('Destinos salvos.', 'ok');
+};
+
+/* =============================================================================
+   ATIVIDADE: histórico de XML e logs
+   ========================================================================== */
+const CONTRATOS = [
+  { id: 'estoque-v2', nome: 'Estoque v2', sistema: 'Estoque', teste: x => /<estoque[\s>]/.test(x), xsd: () => (est().apiUrl || API_PADRAO) + '/xml/estoque.xsd' },
+  { id: 'recebimento-v1', nome: 'recebimento-v1', sistema: 'Estoque', teste: x => x.includes('urn:compras:recebimento:1.0'), xsd: () => 'contratos/recebimento-v1.xsd' },
+  { id: 'previsao-entrega-v1', nome: 'previsao-entrega-v1', sistema: 'Estoque', teste: x => x.includes('urn:compras:previsao-entrega:1.0'), xsd: () => 'contratos/previsao-entrega-v1.xsd' },
+  { id: 'confirmacao-recebimento-v1', nome: 'confirmacao-recebimento-v1', sistema: 'Estoque', teste: x => RE_CONF.test(x), xsd: () => 'contratos/confirmacao-recebimento-v1.xsd' },
+  { id: 'consulta-disponibilidade', nome: 'consultaDisponibilidade', sistema: 'Estoque', teste: x => /<consultaDisponibilidade[\s>]/.test(x), xsd: () => 'contratos/disponibilidade-estoque.xsd' },
+  { id: 'resposta-disponibilidade', nome: 'respostaDisponibilidade', sistema: 'Estoque', teste: x => RE_DISP.test(x), xsd: () => 'contratos/disponibilidade-estoque.xsd' },
+  { id: 'saida-v2', nome: 'saida-v2', sistema: 'Financeiro', teste: x => x.includes(NS_SAIDA), xsd: () => FIN_XSD + 'saida-v2.xsd' },
+  { id: 'pendencias-consulta', nome: 'consultaPendencias', sistema: 'Financeiro', teste: x => x.includes(NS_PEND) && /<consultaPendencias[\s>]/.test(x), xsd: () => FIN_XSD + 'pendencias-fornecedor-v1.xsd' },
+  { id: 'pendencias-resposta', nome: 'respostaPendencias', sistema: 'Financeiro', teste: x => /<([\w.-]+:)?respostaPendencias[\s>]/.test(x), xsd: () => FIN_XSD + 'pendencias-fornecedor-v1.xsd' },
+  { id: 'aviso-pagamento', nome: 'avisoPagamento', sistema: 'Financeiro', teste: x => x.includes(NS_AVISO), xsd: () => FIN_XSD + 'aviso-pagamento-v1.xsd' },
+];
+const contratoDe = x => CONTRATOS.find(c => { try { return c.teste(x); } catch (e) { return false; } }) || null;
+function regXml(o){
+  const xml = String(o.xml || '').replace(/^﻿/, ''), c = contratoDe(xml);
+  if (!c && o.direcao === 'enviado') return;
+  const ref = (xml.match(/referencia="([^"]+)"/) || xml.match(/<idConsulta>([^<]+)</) || xml.match(/<lote_id>([^<]+)</) || xml.match(/\bid="([^"]+)"/) || [])[1] || '';
+  S.xmlHist.unshift({ id: uid(), em: new Date().toISOString(), direcao: o.direcao, via: o.via, contrato: c ? c.id : '', nome: c ? c.nome : 'XML não identificado',
+    sistema: c ? c.sistema : 'Estoque', ref, ok: o.ok !== false, detalhe: o.detalhe || '', cortado: xml.length > 200000, xml: xml.slice(0, 200000) });
+  S.xmlHist = S.xmlHist.slice(0, 200); salvar();
+  if (!$('#v-atividade').hidden) renderAtividade();
+}
+// registra o XML recebido junto com o resultado (o último log gerado vira o detalhe)
+const comHistorico = fn => (text, via) => {
+  const antes = S.logs[0], ok = fn(text, via);
+  regXml({ direcao: 'recebido', via, xml: text, ok: !!ok, detalhe: S.logs[0] !== antes ? S.logs[0].evt : '' });
+  return ok;
+};
+aplicarXmlEstoque = comHistorico(aplicarXmlEstoque);
+aplicarRespostaPendencias = comHistorico(aplicarRespostaPendencias);
+aplicarAvisoPagamento = comHistorico(aplicarAvisoPagamento);
+
+let atAba = 'xml';
+const fhx = { q: '', sis: '', dir: '' }, fl = { q: '' };
+const VIA = { arquivo: 'Arquivo', socket: 'Socket', api: 'API' };
+function renderAtividade(){
+  $$('#at-tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.aba === atAba));
+  $('#at-xml').hidden = atAba !== 'xml'; $('#at-logs').hidden = atAba !== 'logs';
+  $('#c-hist').textContent = S.xmlHist.length || ''; $('#c-logs').textContent = S.logs.length || '';
+  atAba === 'xml' ? renderHist() : renderLogs();
+}
+$$('#at-tabs .tab').forEach(b => b.onclick = () => { atAba = b.dataset.aba; renderAtividade(); });
+function renderHist(){
+  const q = chave(fhx.q);
+  const lista = S.xmlHist.filter(h => (!fhx.sis || h.sistema === fhx.sis) && (!fhx.dir || h.direcao === fhx.dir) && contem(q, h.nome, h.ref, h.detalhe, h.xml.slice(0, 4000)));
+  const vistos = new Set();
+  $('#hx-xsds').innerHTML = CONTRATOS.map(c => c.xsd()).filter(u => u && !vistos.has(u) && vistos.add(u))
+    .map(u => `<a class="chip" href="${esc(u)}" target="_blank" rel="noopener">${esc(u.split('/').pop())}</a>`).join('');
+  $('#em-hist').hidden = lista.length > 0;
+  $('#tb-hist').innerHTML = lista.map(h => {
+    const res = h.direcao === 'enviado' ? st(h.via === 'arquivo' ? 'Gerado' : 'Enviado', 'ok') : (h.ok ? st('Processado', 'ok') : st('Recusado', 'bad'));
+    return `<tr><td class="sm mut">${esc(fmtDataHora(h.em))}</td><td>${h.direcao === 'enviado' ? '↑ Enviado' : '↓ Recebido'}</td>
+      <td><b style="font-weight:550">${esc(h.nome)}</b> <span class="sm mut">${esc(h.sistema)}</span>${h.ref ? '<div class="sm mut mono">' + esc(h.ref) + '</div>' : ''}</td>
+      <td class="mut">${esc(VIA[h.via] || h.via || '—')}</td><td>${res}${h.detalhe ? '<div class="sm mut" style="max-width:320px">' + esc(h.detalhe) + '</div>' : ''}</td>
+      <td><div class="acts"><button class="link" data-hver="${h.id}">Ver</button><button class="link mut" data-hbx="${h.id}">Baixar</button></div></td></tr>`;
+  }).join('');
+}
+function renderLogs(){
+  const q = chave(fl.q), lista = S.logs.filter(l => contem(q, l.evt, l.ts));
+  $('#em-logs').hidden = lista.length > 0;
+  $('#tb-logs').innerHTML = lista.slice(0, 400).map(l => `<tr><td class="sm mut">${esc(l.ts)}</td><td>${esc(l.evt)}</td></tr>`).join('');
+}
+$('#hx-q').oninput = e => { fhx.q = e.target.value; renderHist(); };
+$('#hx-sis').onchange = e => { fhx.sis = e.target.value; renderHist(); };
+$('#hx-dir').onchange = e => { fhx.dir = e.target.value; renderHist(); };
+$('#fl-q').oninput = e => { fl.q = e.target.value; renderLogs(); };
+$('#hx-limpar').onclick = () => { if (S.xmlHist.length && confirm('Apagar o histórico de XML?')) { S.xmlHist = []; salvar(); renderAtividade(); } };
+$('#logs-limpar').onclick = () => { if (S.logs.length && confirm('Apagar todos os logs?')) { S.logs = []; salvar(); renderAtividade(); } };
+function prettyXml(x){
+  if (/>\s*\n\s*</.test(x)) return x;
+  let ind = 0;
+  return x.replace(/>\s*</g, '>\n<').split('\n').map(l => {
+    if (/^<\//.test(l)) ind = Math.max(0, ind - 1);
+    const out = '  '.repeat(ind) + l;
+    if (/^<[^!?\/][^>]*[^\/]>$/.test(l) && !/<\/[^>]+>$/.test(l)) ind++;
+    return out;
+  }).join('\n');
+}
+const nomeHist = h => (h.contrato || 'xml') + '_' + (h.ref || h.em.slice(0, 10)).replace(/[^\w.-]+/g, '-') + '.xml';
+let hxAtual = null;
+$('#tb-hist').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const h = S.xmlHist.find(x => x.id === (b.dataset.hver || b.dataset.hbx)); if (!h) return;
+  if (b.dataset.hbx) return baixar(nomeHist(h), prettyXml(h.xml));
+  hxAtual = h;
+  const c = CONTRATOS.find(x => x.id === h.contrato), xsd = c ? c.xsd() : '';
+  $('#xml-titulo').textContent = h.nome;
+  $('#xml-meta').textContent = (h.direcao === 'enviado' ? 'Enviado' : 'Recebido') + ' via ' + (VIA[h.via] || h.via) + ' em ' + fmtDataHora(h.em) + (h.ref ? ', ref. ' + h.ref : '') + (h.cortado ? ' (cortado em 200 mil caracteres)' : '') + '.';
+  $('#xml-view').textContent = prettyXml(h.xml);
+  $('#xml-xsd').hidden = !xsd; if (xsd) $('#xml-xsd').href = xsd;
+  abrir('#dlg-xml');
+};
+$('#xml-copiar').onclick = async () => { try { await navigator.clipboard.writeText(prettyXml(hxAtual.xml)); toast('XML copiado.', 'ok'); } catch (e) { toast('Não consegui copiar.', 'erro'); } };
+$('#xml-baixar').onclick = () => hxAtual && baixar(nomeHist(hxAtual), prettyXml(hxAtual.xml));
+
+/* =============================================================================
+   INÍCIO
+   ========================================================================== */
+function exemplo(){
+  S = estadoVazio(); S.seq = 1002;
+  S.pedidos = [
+    { id: uid(), num: 'PC-1001', fornecedor: 'Distribuidora Sul Ltda', itens: [{ sku: 'A100', nome: 'Papel A4 75g', qtd: 50, preco: 22.9, receb: 0 }, { sku: 'A250', nome: 'Caneta azul', qtd: 120, preco: 1.4, receb: 0 }],
+      fin: 'Aprovado', log: 'Em trânsito', recebido: false, emissao: hoje(), previsao: somaDias(hoje(), 3) },
+    { id: uid(), num: 'PC-1002', fornecedor: 'Atacado Candeias', itens: [{ sku: 'B300', nome: 'Detergente 5L', qtd: 30, preco: 18, receb: 0 }],
+      fin: 'Pendente', log: 'Aguardando', recebido: false, emissao: hoje(), previsao: somaDias(hoje(), 7) }
+  ];
+  S.pedidos.forEach(p => usaForn(p.fornecedor, true));
+  S.logs.unshift({ ts: new Date().toLocaleString('pt-BR'), evt: 'Sistema iniciado com 2 pedidos de exemplo.' });
+}
+if (!carregar()) exemplo();
+S.config = S.config || { empresa: '', cnpj: '', usuario: '' };
+S.socket = Object.assign({ url: PONTE_PADRAO, destFin: '#finanweb', destEst: '#sistema-de-estoque' }, S.socket || {});
+['consultas', 'xmlHist', 'avisos', 'logs', 'fornecedores', 'pedidos'].forEach(k => S[k] = S[k] || []);
+est();
+if (S.estoque.apiUrl && /finanweb|\/(contratos|integracoes)(\/|$)/i.test(S.estoque.apiUrl)) S.estoque.apiUrl = '';
+recalcUsos(); salvar();
+$('#fr-auto').checked = est().autoEnviar !== false;
+ir(location.hash.slice(1) || 'pedidos');
+statusSock();
+if (!EX) toast('estoque-xml.js não encontrado: a parte de Estoque precisa dele na mesma pasta.', 'erro');
+sockConectar();
+</script>
+</body>
+</html>
