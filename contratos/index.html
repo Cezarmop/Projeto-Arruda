@@ -86,6 +86,10 @@
 
   <p>O saldo de produtos continua no formato do próprio Estoque (<code>estoque.xsd</code> v2), que também aceita as entradas só com SKU e quantidade. O recebimento-v1 é o envio completo.</p>
 
+  <h2>Webservice SOAP</h2>
+  <p>As mesmas mensagens também trafegam pelo webservice SOAP 1.1 do Compras em <code>https://compras.cezbyte.com.br/api/soap</code>, com a chave do setor em <code>Authorization: Bearer</code>. O cabeçalho de controle, as listagens e os invólucros estão no esquema abaixo; os documentos dentro deles seguem os contratos desta página.</p>
+  <div class="files"><a href="servico-compras-v1.xsd">servico-compras-v1.xsd</a><a href="/api/soap?wsdl">WSDL</a></div>
+
   <h2>Como enviar</h2>
   <ol>
     <li>Gere o XML seguindo o exemplo da mensagem.</li>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Serviço SOAP do Compras, versão 1.0 (SOAP 1.1, document/literal).
+  Endereço: https://compras.cezbyte.com.br/api/soap     WSDL: https://compras.cezbyte.com.br/api/soap?wsdl
+  Este esquema define o cabeçalho de controle, os pedidos de listagem e os invólucros das operações.
+  Os documentos levados dentro dos invólucros seguem os seus próprios contratos (recebimento-v1, previsao-entrega-v1,
+  disponibilidade-estoque, confirmacao-recebimento-v1, saldo do Estoque v2, aviso-pagamento-v1 e pendencias-fornecedor-v1 do Finanweb).
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:cs="urn:compras:servico:1.0"
+           targetNamespace="urn:compras:servico:1.0" elementFormDefault="qualified">
+
+  <!-- soap:Header (opcional no pedido, sempre presente na resposta) -->
+  <xs:element name="controle">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="idMensagem" type="xs:string" minOccurs="0"/>
+        <xs:element name="operacao" type="xs:string" minOccurs="0"/>
+        <xs:element name="dataHora" type="xs:dateTime" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- listagens: devolvem as publicações com seq maior que "desde" -->
+  <xs:complexType name="PedidoListagem">
+    <xs:sequence>
+      <xs:element name="desde" type="xs:nonNegativeInteger" minOccurs="0"/>
+      <xs:element name="limite" type="xs:positiveInteger" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="listarRecebimentos" type="cs:PedidoListagem"/>
+  <xs:element name="listarPrevisoesEntrega" type="cs:PedidoListagem"/>
+  <xs:element name="listarConsultasDisponibilidade" type="cs:PedidoListagem"/>
+
+  <xs:element name="publicacoes">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="publicacao" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:sequence><xs:any namespace="##any" processContents="lax"/></xs:sequence>
+            <xs:attribute name="seq" type="xs:positiveInteger" use="required"/>
+            <xs:attribute name="referencia" type="xs:string"/>
+            <xs:attribute name="publicadoEm" type="xs:dateTime"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="tipo" type="xs:string" use="required"/>
+      <xs:attribute name="desde" type="xs:nonNegativeInteger" use="required"/>
+      <xs:attribute name="ultimo" type="xs:nonNegativeInteger" use="required"/>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- invólucros de envio: um documento de contrato dentro -->
+  <xs:complexType name="Involucro">
+    <xs:sequence><xs:any namespace="##any" processContents="lax"/></xs:sequence>
+  </xs:complexType>
+  <xs:element name="confirmarRecebimento" type="cs:Involucro"/>
+  <xs:element name="responderDisponibilidade" type="cs:Involucro"/>
+  <xs:element name="enviarSaldo" type="cs:Involucro"/>
+  <xs:element name="enviarAvisoPagamento" type="cs:Involucro"/>
+  <xs:element name="enviarRespostaPendencias" type="cs:Involucro"/>
+  <xs:element name="enviarMensagem" type="cs:Involucro"/>
+
+  <!-- resposta dos envios -->
+  <xs:element name="confirmacaoEnvio">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="situacao">
+          <xs:simpleType><xs:restriction base="xs:string">
+            <xs:enumeration value="RECEBIDA"/><xs:enumeration value="DUPLICADA"/>
+          </xs:restriction></xs:simpleType>
+        </xs:element>
+        <xs:element name="tipo" type="xs:string"/>
+        <xs:element name="seq" type="xs:positiveInteger"/>
+        <xs:element name="mensagem" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- detail do soap:Fault -->
+  <xs:element name="erro">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="status" type="xs:int"/>
+        <xs:element name="mensagem" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

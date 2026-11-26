@@ -338,6 +338,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
         <button class="btn" data-menu>Contas a pagar ▾</button>
         <div class="menu-list" hidden>
           <button id="fin-saida-api">Enviar pela API<small>POST /compras, cada pedido vira conta a pagar</small></button>
+          <button id="fin-saida-soap">Enviar via SOAP<small>EnviarCompra no webservice do Financeiro</small></button>
           <button id="fin-saida-sock">Enviar via socket<small>saida-v2 para o Financeiro</small></button>
           <button id="fin-saida">Baixar XML<small>saida-v2 com os pedidos como despesas</small></button>
         </div>
@@ -484,7 +485,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
   </div>
 
   <div class="card" id="ap-registro" hidden>
-    <div class="note">Serviços que o Compras oferece (no mesmo modelo do <a href="https://finanwebsistema.vercel.app/registro" target="_blank" rel="noopener">registro do Finanweb</a>). Endpoints relativos à base da API. <a href="#" id="ap-baixar-registro">Baixar servicos.json</a></div>
+    <div class="note">Serviços que o Compras oferece (no mesmo modelo do <a href="https://finanwebsistema.vercel.app/registro" target="_blank" rel="noopener">registro do Finanweb</a>). Endpoints REST relativos à base da API; o webservice SOAP fica em <span class="mono" id="api-soap"></span> (<a href="#" id="ap-wsdl" target="_blank" rel="noopener">WSDL</a>). <a href="#" id="ap-baixar-registro">Baixar servicos.json</a></div>
     <div class="scroll"><table>
       <thead><tr><th>Serviço</th><th>Protocolo</th><th>Operação</th><th>Endpoint</th><th>Contrato</th><th>Quem usa</th></tr></thead>
       <tbody id="tb-registro"></tbody>
@@ -494,8 +495,11 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
       <thead><tr><th>Serviço</th><th>Setor</th><th>Operação</th><th>Endpoint</th></tr></thead>
       <tbody id="tb-consome"></tbody>
     </table></div>
-    <div class="note" style="border-top:1px solid var(--line);border-bottom:0"><b>Exemplo para o Estoque</b>
+    <div class="note" style="border-top:1px solid var(--line);border-bottom:0"><b>Exemplo para o Estoque (REST)</b>
       <pre class="xml" id="ap-exemplo" style="margin-top:8px;max-height:none"></pre>
+    </div>
+    <div class="note" style="border-top:1px solid var(--line);border-bottom:0"><b>Exemplo para o Estoque (SOAP)</b>
+      <pre class="xml" id="ap-exemplo-soap" style="margin-top:8px;max-height:none"></pre>
     </div>
   </div>
 
@@ -1595,6 +1599,15 @@ async function apiFin(caminho, metodo = 'GET', corpo){
   if (r.status === 403) throw new Error('a chave não é do setor compras (403)');
   return { status: r.status, j };
 }
+// marca os pedidos enviados e registra no histórico (comum à API REST e ao SOAP)
+function marcarEnviadosFin(r, situacao, via, conteudo){
+  const em = new Date().toISOString();
+  r.refs.forEach(ref => { const p = S.pedidos.find(x => x.num === ref); if (p) p.enviadoFin = { em, status: r.status[ref], situacao: situacao || '', via }; });
+  regXml({ direcao: 'enviado', via, xml: conteudo, contratoId: 'saida-v2' });
+  log('Financeiro: ' + resumoSaida(r) + ' enviadas ' + (via === 'soap' ? 'via SOAP (EnviarCompra)' : 'pela API') + ' (' + (situacao || 'ok') + ').');
+  salvar(); renderTudo();
+  toast(r.qtd + ' compra(s) enviada(s) ao Financeiro, aguardando aprovação.' + (r.pulados.length ? ' ' + r.pulados.length + ' sem CPF/CNPJ ficaram de fora.' : ''), 'ok');
+}
 $('#fin-saida-api').onclick = async () => {
   const r = gerarSaida(); if (!r) return;
   const b = $('#fin-saida-api'); b.disabled = true;
@@ -1602,14 +1615,53 @@ $('#fin-saida-api').onclick = async () => {
     const { status, j } = await apiFin('/compras', 'POST', r.json);
     if (status === 422 || j.ok === false) throw new Error('o Financeiro recusou: ' + (j.erro || 'HTTP ' + status));
     if (status >= 400) throw new Error('HTTP ' + status + (j.erro ? ': ' + j.erro : ''));
-    const em = new Date().toISOString();
-    r.refs.forEach(ref => { const p = S.pedidos.find(x => x.num === ref); if (p) p.enviadoFin = { em, status: r.status[ref], situacao: j.situacao || '' }; });
-    regXml({ direcao: 'enviado', via: 'api', xml: JSON.stringify(r.json, null, 2), contratoId: 'saida-v2' });
-    log('Financeiro: ' + resumoSaida(r) + ' enviadas pela API (' + (j.situacao || status) + ').');
-    salvar(); renderTudo();
-    toast(r.qtd + ' compra(s) enviada(s) ao Financeiro, aguardando aprovação.' + (r.pulados.length ? ' ' + r.pulados.length + ' sem CPF/CNPJ ficaram de fora.' : ''), 'ok');
+    marcarEnviadosFin(r, j.situacao || String(status), 'api', JSON.stringify(r.json, null, 2));
   } catch (e) { log('Financeiro: envio pela API falhou: ' + e.message); toast(e.message, 'erro'); }
   finally { b.disabled = false; }
+};
+
+/* --- Webservice SOAP do Financeiro (Finanweb): SOAP 1.1 document/literal, mesma chave Bearer da API REST --- */
+const NS_FIN_SOAP = 'urn:finanweb:servico:1.0';
+const finSoapUrl = () => (fin().url || FIN_PADRAO).replace(/\/+$/, '').replace(/\/v1$/, '') + '/soap';
+function envelopeSoap(ns, operacao, corpo){
+  const id = 'compras-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+  return { id, xml: '<?xml version="1.0" encoding="UTF-8"?>\n<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:fw="' + ns + '">\n' +
+    '  <soap:Header><fw:controle><fw:idMensagem>' + id + '</fw:idMensagem><fw:operacao>' + operacao + '</fw:operacao><fw:dataHora>' + new Date().toISOString() + '</fw:dataHora></fw:controle></soap:Header>\n' +
+    '  <soap:Body>\n' + corpo.replace(/^<\?xml[^>]*\?>\s*/, '') + '  </soap:Body>\n</soap:Envelope>\n' };
+}
+async function chamarSoapFin(operacao, corpo){
+  const f = fin();
+  if (!f.chave) throw new Error('informe a chave do Financeiro em Integrações');
+  const env = envelopeSoap(NS_FIN_SOAP, operacao, corpo);
+  const r = await fetch(finSoapUrl(), { method: 'POST', body: env.xml,
+    headers: { Authorization: 'Bearer ' + f.chave, 'Content-Type': 'text/xml; charset=utf-8', SOAPAction: '"' + NS_FIN_SOAP + '#' + operacao + '"', Accept: 'text/xml' } });
+  const texto = await r.text();
+  const doc = new DOMParser().parseFromString(texto, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('resposta SOAP ilegível (HTTP ' + r.status + ')');
+  const pega = (n, raiz = doc) => { const e = raiz.getElementsByTagNameNS('*', n)[0]; return e ? e.textContent.trim() : ''; };
+  const falha = doc.getElementsByTagNameNS('*', 'Fault')[0];
+  if (falha) {
+    const motivo = pega('faultstring', falha) || 'HTTP ' + r.status;
+    if (r.status === 401) throw new Error('chave do Financeiro ausente ou inválida (401)');
+    if (r.status === 403) throw new Error('a chave não é do setor compras (403)');
+    if (r.status === 429) throw new Error('limite de chamadas do Financeiro, tente em ' + (r.headers.get('Retry-After') || 'alguns') + ' s');
+    throw new Error('o Financeiro recusou: ' + motivo);
+  }
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return { env, texto, pega };
+}
+$('#fin-saida-soap').onclick = async () => {
+  const r = gerarSaida(); if (!r) return;
+  const b = $('#fin-saida-soap'); b.disabled = true;
+  try {
+    const { env, pega } = await chamarSoapFin('EnviarCompra', r.xml);
+    const situacao = pega('situacao') || 'RECEBIDA';
+    marcarEnviadosFin(r, situacao + (pega('mensagem') ? ': ' + pega('mensagem') : ''), 'soap', env.xml);
+  } catch (e) {
+    const rede = e instanceof TypeError;
+    log('Financeiro: envio via SOAP falhou: ' + (rede ? 'sem resposta do webservice (rede ou CORS)' : e.message));
+    toast(rede ? 'O webservice SOAP do Financeiro não respondeu.' : e.message, 'erro');
+  } finally { b.disabled = false; }
 };
 $('#fin-saida').onclick = () => {
   const r = gerarSaida(); if (!r) return;
@@ -2073,7 +2125,7 @@ aplicarAvisoPagamento = comHistorico(aplicarAvisoPagamento);
 
 let atAba = 'xml';
 const fhx = { q: '', sis: '', dir: '' }, fl = { q: '' };
-const VIA = { arquivo: 'Arquivo', socket: 'Socket', api: 'API' };
+const VIA = { soap: 'SOAP', arquivo: 'Arquivo', socket: 'Socket', api: 'API' };
 function renderAtividade(){
   $$('#at-tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.aba === atAba));
   $('#at-xml').hidden = atAba !== 'xml'; $('#at-logs').hidden = atAba !== 'logs';
@@ -2138,6 +2190,7 @@ $('#xml-baixar').onclick = () => hxAtual && baixar(nomeHist(hxAtual), prettyXml(
    API DO COMPRAS (/api/v1 neste mesmo site): chaves, registro, contratos, publicações e caixa de entrada
    ========================================================================== */
 const API_BASE = location.protocol.startsWith('http') ? location.origin + '/api/v1' : 'https://compras.cezbyte.com.br/api/v1';
+const SOAP_URL = API_BASE.replace(/\/v1$/, '/soap');
 function apiC(){ const a = S.apiC = S.apiC || {}; a.admin = a.admin || ''; a.cursor = a.cursor || 0; return a; }
 let apiSaude = null, apiChaves = [], apAba = 'chaves';
 async function chamarApi(caminho, metodo = 'GET', corpo, semAuth){
@@ -2249,10 +2302,20 @@ const SERVICOS = [
   ['Aviso de pagamento', 'REST', 'POST', '/avisos-pagamento', 'aviso-pagamento-v1 (XML ou JSON)', 'financeiro', 'Opcional: o Compras já busca os avisos no Finanweb.'],
   ['Resposta de pendências', 'REST', 'POST', '/respostas-pendencias', 'pendencias-fornecedor-v1', 'financeiro', 'Opcional: o Compras consulta GET /pendencias do Finanweb.'],
   ['Mensagens (qualquer tipo)', 'REST', 'POST', '/mensagens', 'qualquer um acima', 'estoque, financeiro', 'O tipo é descoberto pela raiz e pelo namespace do XML.'],
+  ['Recebimento', 'SOAP', 'ListarRecebimentos', '', 'WSDL', 'estoque', 'Mesma fila da API REST. Body: <cs:listarRecebimentos><cs:desde>0</cs:desde></cs:listarRecebimentos>.'],
+  ['Previsão de entrega', 'SOAP', 'ListarPrevisoesEntrega', '', 'WSDL', 'estoque', 'Mesma fila da API REST.'],
+  ['Consulta de disponibilidade', 'SOAP', 'ListarConsultasDisponibilidade', '', 'WSDL', 'estoque', 'Mesma fila da API REST.'],
+  ['Confirmação de recebimento', 'SOAP', 'ConfirmarRecebimento', '', 'confirmacao-recebimento-v1.xsd', 'estoque', 'O <confirmacaoRecebimento> vai direto no soap:Body.'],
+  ['Resposta de disponibilidade', 'SOAP', 'ResponderDisponibilidade', '', 'disponibilidade-estoque.xsd', 'estoque', 'Dentro de <cs:responderDisponibilidade>.'],
+  ['Saldo do estoque', 'SOAP', 'EnviarSaldo', '', 'estoque.xsd (v2)', 'estoque', 'Opcional. Dentro de <cs:enviarSaldo>.'],
+  ['Aviso de pagamento', 'SOAP', 'EnviarAvisoPagamento', '', 'aviso-pagamento-v1', 'financeiro', 'Opcional. Dentro de <cs:enviarAvisoPagamento>.'],
+  ['Resposta de pendências', 'SOAP', 'EnviarRespostaPendencias', '', 'pendencias-fornecedor-v1', 'financeiro', 'Opcional. Dentro de <cs:enviarRespostaPendencias>.'],
+  ['Mensagens (qualquer tipo)', 'SOAP', 'EnviarMensagem', '', 'qualquer um acima', 'estoque, financeiro', 'Dentro de <cs:enviarMensagem>; o tipo é descoberto pelo XML.'],
   ['Recebimento, previsão, consulta', 'SOCKET', 'arquivo .xml', '#compras', 'mesmos XSDs', 'estoque', 'Pelo servidor da turma, em privado para o ID do setor.'],
 ];
 const CONSOME = [
   ['Compra (conta a pagar)', 'financeiro', 'POST', 'https://finanwebsistema.vercel.app/api/v1/compras'],
+  ['Compra (conta a pagar)', 'financeiro', 'SOAP EnviarCompra', 'https://finanwebsistema.vercel.app/api/soap'],
   ['Pendências com fornecedor', 'financeiro', 'GET', 'https://finanwebsistema.vercel.app/api/v1/pendencias?origem=compras'],
   ['Aviso de pagamento', 'financeiro', 'GET', 'https://finanwebsistema.vercel.app/api/v1/avisos-pagamento?origem=compras'],
   ['Saldo e entrada no estoque', 'estoque', 'GET / POST', 'https://sistema-de-estoque-cyan.vercel.app/api/xml'],
@@ -2267,7 +2330,25 @@ const CONTRATOS_TELA = [
   ['saida-v2', NS_SAIDA + ' · <movimento tipo="SAIDA">', 'Compras → Financeiro', FIN_XSD + 'saida-v2.xsd', ''],
   ['pendencias-fornecedor-v1', NS_PEND, 'Compras ↔ Financeiro', FIN_XSD + 'pendencias-fornecedor-v1.xsd', ''],
   ['aviso-pagamento-v1', NS_AVISO, 'Financeiro → Compras', FIN_XSD + 'aviso-pagamento-v1.xsd', ''],
+  ['servico-compras-v1 (SOAP)', 'urn:compras:servico:1.0 · cabeçalho controle, listagens e invólucros', 'Estoque, Financeiro → Compras', 'contratos/servico-compras-v1.xsd', SOAP_URL + '?wsdl', 'WSDL'],
 ];
+const exemploSoap = () => [
+  '<!-- POST ' + SOAP_URL + '',
+  '     Authorization: Bearer <CHAVE_DO_ESTOQUE>',
+  '     Content-Type: text/xml; charset=utf-8',
+  '     SOAPAction: "urn:compras:servico:1.0#ListarRecebimentos" -->',
+  '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:cs="urn:compras:servico:1.0">',
+  '  <soap:Header><cs:controle><cs:idMensagem>estoque-0001</cs:idMensagem></cs:controle></soap:Header>',
+  '  <soap:Body>',
+  '    <cs:listarRecebimentos><cs:desde>0</cs:desde><cs:limite>50</cs:limite></cs:listarRecebimentos>',
+  '  </soap:Body>',
+  '</soap:Envelope>',
+  '',
+  '<!-- Resposta: <cs:publicacoes tipo="recebimento" desde="0" ultimo="N"> com um <cs:publicacao seq=".."> por XML.',
+  '     Para confirmar, use SOAPAction ...#ConfirmarRecebimento e coloque o <confirmacaoRecebimento> direto no soap:Body.',
+  '     Envios respondem <cs:confirmacaoEnvio> (situacao RECEBIDA ou DUPLICADA); erros vêm em soap:Fault',
+  '     com HTTP 401 (sem chave), 403 (setor sem permissão) ou 500 (recusado, motivo em faultstring). -->'
+].join('\n');
 const exemploEstoque = () => [
   '# 1. Buscar o que o Compras publicou (guarde o "ultimo" e use como ?desde= na próxima vez)',
   'curl -H "Authorization: Bearer <CHAVE_DO_ESTOQUE>" "' + API_BASE + '/recebimentos?desde=0"',
@@ -2286,11 +2367,13 @@ async function renderApi(){
   $$('#ap-tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.aba === apAba));
   ['chaves', 'registro', 'contratos', 'acessos'].forEach(a => $('#ap-' + a).hidden = a !== apAba);
   $('#tb-registro').innerHTML = SERVICOS.map(s => `<tr><td><b style="font-weight:550">${esc(s[0])}</b><div class="sm mut">${esc(s[6])}</div></td><td>${esc(s[1])}</td><td class="mono">${esc(s[2])}</td>
-    <td class="mono" style="word-break:break-all">${esc(s[3])}</td><td class="sm">${esc(s[4])}</td><td>${esc(s[5])}</td></tr>`).join('');
+    <td class="mono" style="word-break:break-all">${esc(s[1] === 'SOAP' ? '/api/soap' : s[3])}</td><td class="sm">${esc(s[4])}</td><td>${esc(s[5])}</td></tr>`).join('');
   $('#tb-consome').innerHTML = CONSOME.map(s => `<tr><td>${esc(s[0])}</td><td>${esc(s[1])}</td><td class="mono">${esc(s[2])}</td><td class="mono sm" style="word-break:break-all">${esc(s[3])}</td></tr>`).join('');
   $('#ap-exemplo').textContent = exemploEstoque();
+  $('#ap-exemplo-soap').textContent = exemploSoap();
+  $('#api-soap').textContent = SOAP_URL; $('#ap-wsdl').href = SOAP_URL + '?wsdl';
   $('#tb-contratos').innerHTML = CONTRATOS_TELA.map(c => `<tr><td><b style="font-weight:550">${esc(c[0])}</b></td><td class="mono sm" style="word-break:break-all">${esc(c[1])}</td><td>${esc(c[2])}</td>
-    <td><div class="acts" style="justify-content:flex-start"><a class="link" href="${esc(c[3])}" target="_blank" rel="noopener">XSD</a>${c[4] ? `<a class="link mut" href="${esc(c[4])}" target="_blank" rel="noopener">Exemplo</a>` : ''}</div></td></tr>`).join('');
+    <td><div class="acts" style="justify-content:flex-start"><a class="link" href="${esc(c[3])}" target="_blank" rel="noopener">XSD</a>${c[4] ? `<a class="link mut" href="${esc(c[4])}" target="_blank" rel="noopener">${esc(c[5] || 'Exemplo')}</a>` : ''}</div></td></tr>`).join('');
   const s = await verificarApi(), a = apiC();
   const st = $('#api-status');
   if (!s.ok) { st.className = 'st bad'; st.textContent = 'API fora do ar: ' + (s.banco || 'sem resposta'); }
@@ -2359,8 +2442,8 @@ $('#tb-chaves').onclick = async e => {
 $('#ap-acessos-atualizar').onclick = () => carregarAcessos();
 $('#ap-baixar-registro').onclick = e => {
   e.preventDefault();
-  const reg = { setor: 'compras', base: API_BASE, autenticacao: 'Authorization: Bearer <chave do setor>', socket: '#compras @ electronicsystems.com.br:5000',
-    servicos: SERVICOS.map(s => ({ nome: s[0], versao: '2.0', protocolo: s[1], operacao: s[2], endpoint: s[1] === 'REST' ? API_BASE + s[3] : s[3], contrato: s[4], consumidor: s[5], situacao: 'ATIVO', descricao: s[6] })),
+  const reg = { setor: 'compras', base: API_BASE, soap: SOAP_URL, wsdl: SOAP_URL + '?wsdl', autenticacao: 'Authorization: Bearer <chave do setor>', socket: '#compras @ electronicsystems.com.br:5000',
+    servicos: SERVICOS.map(s => ({ nome: s[0], versao: '2.0', protocolo: s[1], operacao: s[2], endpoint: s[1] === 'REST' ? API_BASE + s[3] : s[1] === 'SOAP' ? SOAP_URL : s[3], contrato: s[4] === 'WSDL' ? SOAP_URL + '?wsdl' : s[4], consumidor: s[5], situacao: 'ATIVO', descricao: s[6] })),
     consome: CONSOME.map(s => ({ nome: s[0], setor: s[1], operacao: s[2], endpoint: s[3] })) };
   const blob = new Blob([JSON.stringify(reg, null, 2)], { type: 'application/json' });
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'servicos.json' }); a.click();
