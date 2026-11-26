@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Webservice SOAP · Compras</title>
+<meta name="description" content="Webservice SOAP 1.1 do setor de Compras: WSDL, operações, exemplos e testador">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<style>
+  :root{color-scheme:light;--ink:#14283c;--accent:#f2b705;--bg:#f3f5f4;--panel:#fff;--text:#1b2430;--muted:#5e6b78;--border:#d9dfe3;--line:#e9edf0;--link:#2f6db3;--code:#eef1f3}
+  @media (prefers-color-scheme: dark){:root{color-scheme:dark;--ink:#0d1a27;--bg:#10161d;--panel:#161f29;--text:#e4e9ef;--muted:#9ba7b3;--border:#283545;--line:#202b37;--link:#6aa5e8;--code:#1f2a36}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:15px}
+  header{background:var(--ink);color:#fff;padding:28px 20px 30px}
+  header .in,main{max-width:860px;margin:0 auto}
+  header .mark{display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;margin-right:8px}
+  header small{color:#9fb1c3;font-size:13px}
+  h1{font-size:32px;font-stretch:87%;font-weight:700;margin:6px 0 6px;line-height:1.15}
+  header p{margin:0;color:#c9d4df;max-width:68ch}
+  header a{color:#fff}
+  main{padding:28px 20px 60px}
+  h2{font-size:21px;font-stretch:87%;margin:34px 0 10px}
+  h3{font-size:16px;margin:0 0 4px}
+  p{margin:0 0 10px;max-width:72ch}
+  a{color:var(--link)}
+  .msg{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:12px}
+  .msg .tipo{font-size:12.5px;color:var(--muted);font-weight:500}
+  .files{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .files a{font-size:13px;text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;background:var(--bg)}
+  .files a:hover{border-color:var(--link)}
+  ol,ul{padding-left:22px;max-width:72ch}
+  li{margin-bottom:6px}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:var(--code);padding:1px 5px;border-radius:4px}
+  pre{background:var(--code);padding:12px 14px;border-radius:8px;overflow:auto}
+  pre code{background:none;padding:0}
+  .tw{overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:10px}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:500;font-size:12.5px}
+  tr:last-child td{border-bottom:0}
+  .metodo{display:inline-block;font-size:12px;font-weight:600;border-radius:5px;padding:1px 7px;background:var(--code)}
+  label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+  input,select,textarea{width:100%;font:inherit;font-size:14px;color:var(--text);background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+  textarea{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;min-height:220px;resize:vertical}
+  .secreto{-webkit-text-security:disc}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:640px){.row{grid-template-columns:1fr}}
+  button{font:inherit;font-weight:550;border:0;border-radius:8px;padding:9px 16px;background:var(--ink);color:#fff;cursor:pointer;margin-top:12px}
+  button:disabled{opacity:.6;cursor:wait}
+  .st{font-size:13px;margin-left:10px;color:var(--muted)}
+  .ok{color:#1f8a4c}.bad{color:#c0392b}
+</style>
+</head>
+<body>
+<header><div class="in">
+  <small><span class="mark"></span>Setor de Compras</small>
+  <h1>Webservice SOAP</h1>
+  <p>SOAP 1.1 (document/literal) com as mesmas chaves e as mesmas filas da API REST: o que o Compras publica aparece nos dois, e o que chega por SOAP cai na mesma caixa de entrada. <a href="../">Abrir o Controle de Compras</a> · <a href="../contratos/">Contratos XML</a>.</p>
+</div></header>
+<main>
+  <h2>Endereços</h2>
+  <div class="tw"><table>
+    <tr><th>Endpoint</th><td><code id="u-end"></code></td></tr>
+    <tr><th>WSDL</th><td><a id="u-wsdl" href="/api/soap?wsdl" target="_blank" rel="noopener"></a></td></tr>
+    <tr><th>Esquema do serviço</th><td><a href="../contratos/servico-compras-v1.xsd">servico-compras-v1.xsd</a> (namespace <code>urn:compras:servico:1.0</code>)</td></tr>
+    <tr><th>Autenticação</th><td><code>Authorization: Bearer &lt;chave do setor&gt;</code>, a mesma chave da API REST, emitida pelo Compras</td></tr>
+    <tr><th>Cabeçalhos</th><td><code>Content-Type: text/xml; charset=utf-8</code> e <code>SOAPAction: "urn:compras:servico:1.0#&lt;Operação&gt;"</code> (opcional: sem ela a operação vem do corpo)</td></tr>
+  </table></div>
+
+  <h2>Operações</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Operação</th><th>Quem usa</th><th>O que vai no soap:Body</th></tr></thead>
+    <tbody id="tb-ops"></tbody>
+  </table></div>
+
+  <h2>Respostas</h2>
+  <ul>
+    <li><b>Listagens</b>: <code>&lt;cs:publicacoes tipo desde ultimo&gt;</code> com um <code>&lt;cs:publicacao seq referencia publicadoEm&gt;</code> por XML. Guarde o <code>ultimo</code> e mande como <code>desde</code> na próxima chamada.</li>
+    <li><b>Envios</b>: <code>&lt;cs:confirmacaoEnvio&gt;</code> com <code>situacao</code> <code>RECEBIDA</code> ou <code>DUPLICADA</code> (reenviar o mesmo XML não duplica nada), <code>tipo</code>, <code>seq</code> e <code>mensagem</code>.</li>
+    <li><b>Erros</b>: <code>soap:Fault</code> com HTTP <code>401</code> (chave ausente ou inválida), <code>403</code> (operação de outro setor) ou <code>500</code> (recusado; o motivo vem em <code>faultstring</code>).</li>
+    <li>O <code>soap:Header</code> com <code>&lt;cs:controle&gt;&lt;cs:idMensagem&gt;</code> é opcional; a resposta sempre devolve um <code>cs:controle</code> com o mesmo <code>idMensagem</code>.</li>
+  </ul>
+
+  <h2>Testar agora</h2>
+  <p>Escolha a operação, cole a chave do seu setor e envie. A chave fica só nesta página e não é guardada.</p>
+  <div class="msg">
+    <div class="row">
+      <div><label for="t-op">Operação</label><select id="t-op"></select></div>
+      <div><label for="t-chave">Chave do setor</label><input id="t-chave" class="secreto" autocomplete="off" spellcheck="false" placeholder="Bearer"></div>
+    </div>
+    <label for="t-env">Envelope</label>
+    <textarea id="t-env" spellcheck="false"></textarea>
+    <button id="t-enviar">Enviar</button><span class="st" id="t-st"></span>
+    <label for="t-resp">Resposta</label>
+    <textarea id="t-resp" readonly spellcheck="false" placeholder="A resposta aparece aqui."></textarea>
+  </div>
+</main>
+<script>
+const NS = 'urn:compras:servico:1.0';
+const END = location.protocol.startsWith('http') ? location.origin + '/api/soap' : 'https://compras.cezbyte.com.br/api/soap';
+document.getElementById('u-end').textContent = END;
+const w = document.getElementById('u-wsdl'); w.textContent = END + '?wsdl'; w.href = END + '?wsdl';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const listar = el => '<cs:' + el + '>\n      <cs:desde>0</cs:desde>\n      <cs:limite>50</cs:limite>\n    </cs:' + el + '>';
+const OPS = [
+  ['ListarRecebimentos', 'estoque', 'cs:listarRecebimentos com desde e limite', listar('listarRecebimentos')],
+  ['ListarPrevisoesEntrega', 'estoque', 'cs:listarPrevisoesEntrega com desde e limite', listar('listarPrevisoesEntrega')],
+  ['ListarConsultasDisponibilidade', 'estoque', 'cs:listarConsultasDisponibilidade com desde e limite', listar('listarConsultasDisponibilidade')],
+  ['ConfirmarRecebimento', 'estoque', 'o confirmacaoRecebimento (confirmacao-recebimento-v1) direto no Body',
+    '<confirmacaoRecebimento xmlns="urn:compras:confirmacao-recebimento:1.0" versao="1.0">\n      <!-- conteúdo do contrato confirmacao-recebimento-v1 -->\n    </confirmacaoRecebimento>'],
+  ['ResponderDisponibilidade', 'estoque', 'o respostaDisponibilidade dentro de cs:responderDisponibilidade',
+    '<cs:responderDisponibilidade>\n      <respostaDisponibilidade>\n        <!-- conteúdo do contrato disponibilidade-estoque -->\n      </respostaDisponibilidade>\n    </cs:responderDisponibilidade>'],
+  ['EnviarSaldo', 'estoque', 'o estoque versao="2" dentro de cs:enviarSaldo (opcional)',
+    '<cs:enviarSaldo>\n      <estoque versao="2">\n        <!-- saldo no formato do Estoque v2 -->\n      </estoque>\n    </cs:enviarSaldo>'],
+  ['EnviarAvisoPagamento', 'financeiro', 'o avisoPagamento (aviso-pagamento-v1) dentro de cs:enviarAvisoPagamento',
+    '<cs:enviarAvisoPagamento>\n      <avisoPagamento xmlns="urn:finanweb:aviso-pagamento:1.0" versao="1.0">\n        <!-- conteúdo do contrato aviso-pagamento-v1 -->\n      </avisoPagamento>\n    </cs:enviarAvisoPagamento>'],
+  ['EnviarRespostaPendencias', 'financeiro', 'o respostaPendencias (pendencias-fornecedor-v1) dentro de cs:enviarRespostaPendencias',
+    '<cs:enviarRespostaPendencias>\n      <respostaPendencias xmlns="urn:finanweb:pendencias-fornecedor:1.0">\n        <!-- conteúdo do contrato pendencias-fornecedor-v1 -->\n      </respostaPendencias>\n    </cs:enviarRespostaPendencias>'],
+  ['EnviarMensagem', 'estoque, financeiro', 'qualquer um dos XMLs acima dentro de cs:enviarMensagem',
+    '<cs:enviarMensagem>\n      <!-- qualquer XML dos contratos; o tipo é descoberto pela raiz e pelo namespace -->\n    </cs:enviarMensagem>'],
+];
+document.getElementById('tb-ops').innerHTML = OPS.map(o => '<tr><td><code>' + o[0] + '</code></td><td>' + esc(o[1]) + '</td><td>' + esc(o[2]) + '</td></tr>').join('');
+const envelope = corpo => '<?xml version="1.0" encoding="UTF-8"?>\n<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:cs="' + NS + '">\n' +
+  '  <soap:Header>\n    <cs:controle><cs:idMensagem>teste-' + Date.now().toString(36) + '</cs:idMensagem></cs:controle>\n  </soap:Header>\n' +
+  '  <soap:Body>\n    ' + corpo + '\n  </soap:Body>\n</soap:Envelope>\n';
+const sel = document.getElementById('t-op'), env = document.getElementById('t-env');
+sel.innerHTML = OPS.map((o, i) => '<option value="' + i + '">' + o[0] + '</option>').join('');
+sel.onchange = () => { env.value = envelope(OPS[sel.value][3]); };
+sel.onchange();
+document.getElementById('t-enviar').onclick = async () => {
+  const b = document.getElementById('t-enviar'), st = document.getElementById('t-st'), out = document.getElementById('t-resp');
+  const chave = document.getElementById('t-chave').value.trim().replace(/^Bearer\s+/i, '');
+  if (!chave) { st.className = 'st bad'; st.textContent = 'Informe a chave do setor.'; return; }
+  b.disabled = true; st.className = 'st'; st.textContent = 'Enviando...'; out.value = '';
+  try {
+    const r = await fetch(END, { method: 'POST', body: env.value, headers: { Authorization: 'Bearer ' + chave,
+      'Content-Type': 'text/xml; charset=utf-8', SOAPAction: '"' + NS + '#' + OPS[sel.value][0] + '"' } });
+    out.value = await r.text();
+    st.className = 'st ' + (r.ok ? 'ok' : 'bad'); st.textContent = 'HTTP ' + r.status + (r.ok ? '' : ' (veja o faultstring)');
+  } catch (e) { st.className = 'st bad'; st.textContent = 'Sem resposta do servidor.'; }
+  finally { b.disabled = false; }
+};
+</script>
+</body>
+</html>

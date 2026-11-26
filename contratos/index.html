@@ -46,7 +46,7 @@
 <header><div class="in">
   <small><span class="mark"></span>Setor de Compras</small>
   <h1>Contratos de integração</h1>
-  <p>Formatos XML que o Compras troca com o Estoque, no mesmo modelo dos <a href="https://finanwebsistema.vercel.app/contratos">contratos do Financeiro</a>. Cada mensagem tem um schema (XSD) e um XML de exemplo. <a href="../">Abrir o Controle de Compras</a>.</p>
+  <p>Formatos XML que o Compras troca com o Estoque, no mesmo modelo dos <a href="https://finanwebsistema.vercel.app/contratos">contratos do Financeiro</a>. Cada mensagem tem um schema (XSD) e um XML de exemplo. <a href="../">Abrir o Controle de Compras</a> · <a href="../soap/">Webservice SOAP</a>.</p>
 </div></header>
 <main>
   <h2>O que o Compras troca com o Estoque</h2>
@@ -88,7 +88,7 @@
 
   <h2>Webservice SOAP</h2>
   <p>As mesmas mensagens também trafegam pelo webservice SOAP 1.1 do Compras em <code>https://compras.cezbyte.com.br/api/soap</code>, com a chave do setor em <code>Authorization: Bearer</code>. O cabeçalho de controle, as listagens e os invólucros estão no esquema abaixo; os documentos dentro deles seguem os contratos desta página.</p>
-  <div class="files"><a href="servico-compras-v1.xsd">servico-compras-v1.xsd</a><a href="/api/soap?wsdl">WSDL</a></div>
+  <div class="files"><a href="../soap/">Documentação e testador do SOAP</a><a href="servico-compras-v1.xsd">servico-compras-v1.xsd</a><a href="/api/soap?wsdl">WSDL</a></div>
 
   <h2>Como enviar</h2>
   <ol>

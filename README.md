@@ -26,6 +26,7 @@ estoque-xml.js    gera e lê os XMLs dos contratos (estoque v2, recebimento-v1, 
 api/_nucleo.js    banco, chaves, filas e caixa de entrada, comum à API REST e ao SOAP
 api/v1.js         API REST do Compras (Vercel Function, Node, sem dependências)
 api/soap.js       webservice SOAP 1.1 do Compras, com WSDL
+soap/             página do webservice SOAP: WSDL, operações, exemplos e testador
 contratos/        XSD e exemplo de cada mensagem + página de documentação
 vercel.json       rotas /api/v1/* e cabeçalhos dos XSD
 ```
@@ -52,7 +53,7 @@ vercel.json       rotas /api/v1/* e cabeçalhos dos XSD
 | `POST /mensagens` | estoque, financeiro | qualquer um dos XMLs acima |
 
 Respostas: `202` recebida, `200` duplicada, `401` chave inválida, `403` rota de outro setor, `422` fora do contrato.
-**Webservice SOAP** (SOAP 1.1, document/literal) em `https://compras.cezbyte.com.br/api/soap`, WSDL em [`/api/soap?wsdl`](https://compras.cezbyte.com.br/api/soap?wsdl), com as mesmas chaves e as mesmas filas da API REST:
+**Webservice SOAP** ([documentação e testador](https://compras.cezbyte.com.br/soap/)) (SOAP 1.1, document/literal) em `https://compras.cezbyte.com.br/api/soap`, WSDL em [`/api/soap?wsdl`](https://compras.cezbyte.com.br/api/soap?wsdl), com as mesmas chaves e as mesmas filas da API REST:
 
 | Operação | Quem | Corpo |
 |---|---|---|

@@ -189,6 +189,8 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
   <button class="nav" data-view="integracoes">Integrações</button>
   <button class="nav" data-view="api">API e contratos <span class="n" id="n-api" hidden></span></button>
   <button class="nav" data-view="atividade">Atividade</button>
+  <a class="nav" href="soap/" target="_blank" rel="noopener">Webservice SOAP <span aria-hidden="true">↗</span></a>
+  <a class="nav" href="contratos/" target="_blank" rel="noopener">Contratos XML <span aria-hidden="true">↗</span></a>
   <div class="side-foot">
     <span class="st" id="pill-sock">Socket desconectado</span>
   </div>
@@ -485,7 +487,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
   </div>
 
   <div class="card" id="ap-registro" hidden>
-    <div class="note">Serviços que o Compras oferece (no mesmo modelo do <a href="https://finanwebsistema.vercel.app/registro" target="_blank" rel="noopener">registro do Finanweb</a>). Endpoints REST relativos à base da API; o webservice SOAP fica em <span class="mono" id="api-soap"></span> (<a href="#" id="ap-wsdl" target="_blank" rel="noopener">WSDL</a>). <a href="#" id="ap-baixar-registro">Baixar servicos.json</a></div>
+    <div class="note">Serviços que o Compras oferece (no mesmo modelo do <a href="https://finanwebsistema.vercel.app/registro" target="_blank" rel="noopener">registro do Finanweb</a>). Endpoints REST relativos à base da API; o webservice SOAP fica em <span class="mono" id="api-soap"></span> (<a href="#" id="ap-wsdl" target="_blank" rel="noopener">WSDL</a>, <a href="soap/" target="_blank" rel="noopener">documentação e testador</a>). <a href="#" id="ap-baixar-registro">Baixar servicos.json</a></div>
     <div class="scroll"><table>
       <thead><tr><th>Serviço</th><th>Protocolo</th><th>Operação</th><th>Endpoint</th><th>Contrato</th><th>Quem usa</th></tr></thead>
       <tbody id="tb-registro"></tbody>
@@ -815,7 +817,7 @@ function ir(v){
   if (location.hash.slice(1) !== v) history.replaceState(null, '', '#' + v);
   scrollTo(0, 0);
 }
-$$('.nav').forEach(b => b.onclick = () => ir(b.dataset.view));
+$$('.nav[data-view]').forEach(b => b.onclick = () => ir(b.dataset.view));
 $('#burger').onclick = e => { e.stopPropagation(); document.body.classList.add('nav-open'); };
 document.addEventListener('click', e => {
   if (document.body.classList.contains('nav-open') && !e.target.closest('.side')) document.body.classList.remove('nav-open');
