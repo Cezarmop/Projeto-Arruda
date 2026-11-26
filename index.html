@@ -369,7 +369,8 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
     <div class="card"><div class="sec">
       <h3>API do Estoque</h3>
       <label class="f">Endereço base<input id="api-url" type="url" placeholder="https://sistema-de-estoque-cyan.vercel.app"></label>
-      <div class="hint">GET /api/xml para o saldo; POST /api/xml/validar e /api/xml para dar entrada. Com a ponte aberta, a chamada passa por ela (sem CORS).</div>
+      <label class="f">Chave de API (X-API-Key)<input id="api-key" type="password" autocomplete="off" placeholder="Cole a chave fornecida pelo Estoque"></label>
+      <div class="hint">GET /api/xml para o saldo; POST /api/xml/validar e /api/xml para dar entrada. A chave fica só neste navegador. Se a chamada direta falhar, passa pela ponte.</div>
       <div class="row"><span class="grow"></span><button class="btn sm" id="api-testar">Testar</button><button class="btn sm pri" id="api-salvar">Salvar</button></div>
     </div></div>
   </div>
@@ -1241,16 +1242,22 @@ function aplicarRespostaDisponibilidade(t, via){
 }
 
 /* --- API do Estoque (pela ponte quando disponível, para evitar CORS) --- */
+// chamada direta (a API do Estoque libera CORS); se a rede falhar e a ponte estiver aberta, passa por ela
 async function apiEstoque(caminho, metodo, corpo){
   const url = (est().apiUrl || API_PADRAO).replace(/\/+$/, '') + caminho;
-  if (sock.http && sock.versao >= 3) {
+  const chave = est().apiKey;
+  const h = metodo === 'POST' ? { 'Content-Type': 'application/xml' } : { Accept: 'application/xml' };
+  if (chave) h['X-API-Key'] = chave;
+  try {
+    const r = await fetch(url, metodo === 'POST' ? { method: 'POST', headers: h, body: corpo } : { headers: h });
+    return { status: r.status, corpo: await r.text() };
+  } catch (err) {
+    if (!(sock.http && sock.versao >= 3)) throw new Error('sem resposta do Estoque (' + err.message + ')');
     const r = await fetch(ponte() + '/proxy?url=' + encodeURIComponent(url) + '&metodo=' + metodo, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo || '' });
     const j = await r.json();
     if (!j.ok) throw new Error('não consegui falar com o Estoque: ' + j.erro);
     return { status: j.status, corpo: j.corpo };
   }
-  const r = await fetch(url, metodo === 'POST' ? { method: 'POST', headers: { 'Content-Type': 'application/xml' }, body: corpo } : { headers: { Accept: 'application/xml' } });
-  return { status: r.status, corpo: await r.text() };
 }
 const resumoApi = t => { try { const j = JSON.parse(t); return j.mensagem || j.message || j.erro || j.error || JSON.stringify(j).slice(0, 300); } catch (e) { return String(t || '').replace(/\s+/g, ' ').slice(0, 300); } };
 async function enviarApiEstoque(xml){
@@ -1531,6 +1538,7 @@ function renderIntegracoes(){
   const c = S.config;
   $('#cfg-empresa').value = c.empresa || ''; $('#cfg-cnpj').value = c.cnpj ? fmtDoc(c.cnpj) : ''; $('#cfg-usuario').value = c.usuario || '';
   $('#api-url').value = est().apiUrl || API_PADRAO;
+  $('#api-key').value = est().apiKey || '';
   $('#sock-url').value = S.socket.url; $('#sock-dest-fin').value = S.socket.destFin; $('#sock-dest-est').value = S.socket.destEst;
   renderSock();
 }
@@ -1546,7 +1554,9 @@ $('#api-salvar').onclick = () => {
   if (v && !/^https?:\/\/\S+$/i.test(v)) return toast('Use um endereço com http:// ou https://', 'erro');
   if (/finanweb/i.test(v)) return toast('Esse é o Financeiro. Aqui vai a API do Estoque.', 'erro');
   if (/\/(contratos|integracoes|api)(\/|$)/i.test(v)) return toast('Use só o endereço base, sem /api.', 'erro');
-  est().apiUrl = v === API_PADRAO ? '' : v; salvar(); log('Estoque: API definida como ' + (v || API_PADRAO) + '.'); toast('Endereço salvo.', 'ok');
+  est().apiUrl = v === API_PADRAO ? '' : v;
+  est().apiKey = $('#api-key').value.trim();
+  salvar(); log('Estoque: API definida como ' + (v || API_PADRAO) + (est().apiKey ? ', com chave.' : ', sem chave.')); toast('Configuração da API salva.', 'ok');
 };
 $('#api-testar').onclick = async () => {
   try { const r = await apiEstoque('/api/xml', 'GET'); toast(r.status < 400 ? 'API respondeu ' + r.status + '.' : 'API respondeu ' + r.status + ': ' + resumoApi(r.corpo), r.status < 400 ? 'ok' : 'erro'); }
