@@ -2242,7 +2242,7 @@ function juntarDados(base, loc, srv){
     if (loc[k] === undefined) r[k] = srv[k]; else r[k] = juntaLista(base[k], loc[k], srv[k]);
   });
   r.seq = Math.max(loc.seq || 0, srv.seq || 0); r.consultaSeq = Math.max(loc.consultaSeq || 0, srv.consultaSeq || 0);
-  r.config = juntaValor(base.config, loc.config, srv.config);
+  r.config = base.config ? juntaValor(base.config, loc.config, srv.config) : (srv.config && srv.config.empresa ? srv.config : loc.config);
   const chaveLog = x => x.ts + '|' + x.evt, noSrv = new Set((srv.logs || []).map(chaveLog)), naBase = new Set((base.logs || []).map(chaveLog));
   r.logs = [...(loc.logs || []).filter(x => !noSrv.has(chaveLog(x)) && !naBase.has(chaveLog(x))), ...(srv.logs || [])].slice(0, 300);
   const bE = base.estoque || {}, lE = loc.estoque || {}, sE = srv.estoque || {};
@@ -2287,7 +2287,7 @@ async function sincronizarDados(manual, tentativa = 0){
     if (!r.igual) {
       const srv = r.dados, local = pacoteDados();
       if (!srv) { /* servidor vazio: este computador sobe o que tem */ }
-      else if (!base.dados && S.semente) { aplicarDados(srv); mudou = true; }                 // computador novo com dados de exemplo: usa os do servidor
+      else if (!base.dados && S.semente && !S.pedidos.length && !S.fornecedores.length && !(S.movimentacoes || []).length) { aplicarDados(srv); mudou = true; }                 // computador novo: usa os dados do servidor
       else {
         const j = juntarDados(base.dados, local, srv), ren = j.renumerar; delete j.renumerar;
         aplicarDados(j);
@@ -2904,18 +2904,7 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-copi
 /* =============================================================================
    INÍCIO
    ========================================================================== */
-function exemplo(){
-  S = estadoVazio(); S.seq = 1002; S.semente = true;
-  S.pedidos = [
-    { id: uid(), num: 'PC-1001', fornecedor: 'Distribuidora Sul Ltda', itens: [{ sku: 'A100', nome: 'Papel A4 75g', qtd: 50, preco: 22.9, receb: 0 }, { sku: 'A250', nome: 'Caneta azul', qtd: 120, preco: 1.4, receb: 0 }],
-      fin: 'Aprovado', log: 'Em trânsito', recebido: false, emissao: hoje(), previsao: somaDias(hoje(), 3) },
-    { id: uid(), num: 'PC-1002', fornecedor: 'Atacado Candeias', itens: [{ sku: 'B300', nome: 'Detergente 5L', qtd: 30, preco: 18, receb: 0 }],
-      fin: 'Pendente', log: 'Aguardando', recebido: false, emissao: hoje(), previsao: somaDias(hoje(), 7) }
-  ];
-  S.pedidos.forEach(p => usaForn(p.fornecedor, true));
-  S.logs.unshift({ ts: new Date().toLocaleString('pt-BR'), evt: 'Sistema iniciado com 2 pedidos de exemplo.' });
-}
-if (!carregar()) exemplo();
+if (!carregar()) { S = estadoVazio(); S.semente = true; }   // computador novo: começa vazio e recebe os dados do servidor
 S.config = S.config || { empresa: '', cnpj: '', usuario: '' };
 S.socket = Object.assign({ url: PONTE_PADRAO, destFin: '#finanweb', destEst: '#sistema-de-estoque' }, S.socket || {});
 ['consultas', 'xmlHist', 'avisos', 'logs', 'fornecedores', 'pedidos'].forEach(k => S[k] = S[k] || []);
