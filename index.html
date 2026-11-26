@@ -408,6 +408,7 @@ pre.xml{margin:0;padding:14px;background:var(--bg);border:1px solid var(--line);
     </div>
     <div class="row">
       <label class="row sm" style="gap:6px"><input type="checkbox" id="fin-auto"> Buscar pendências e avisos de pagamento automaticamente (a cada 5 min)</label>
+      <label class="row sm" style="gap:6px"><input type="checkbox" id="fin-auto-envio"> Enviar cada pedido novo ao Financeiro automaticamente</label>
       <span class="grow"></span><span class="hint" id="fin-status"></span>
       <button class="btn sm" id="fin-testar">Testar</button><button class="btn sm pri" id="fin-salvar">Salvar</button>
     </div>
@@ -867,7 +868,7 @@ function renderPedidos(){
     <td class="r">${money(totalPedido(p))}</td>
     <td>${progresso(totalRecebido(p), totalQtd(p))}</td>
     <td>${entrega(p)}</td>
-    <td>${st(p.fin, FIN_CLS[p.fin])}${p.avisoFin === 'CANCELADO' ? '<div class="sm" style="color:var(--bad)">Cancelada no Financeiro</div>' : p.avisoFin === 'PAGO' ? '<div class="sm mut">Confirmado pelo Financeiro</div>' : p.enviadoFin ? '<div class="sm mut">Enviado ao Financeiro</div>' : ''}</td>
+    <td>${st(p.fin, FIN_CLS[p.fin])}${p.avisoFin === 'CANCELADO' ? '<div class="sm" style="color:var(--bad)">Cancelada no Financeiro</div>' : p.avisoFin === 'PAGO' ? '<div class="sm mut">Confirmado pelo Financeiro</div>' : p.enviadoFin ? '<div class="sm mut">Enviado ao Financeiro</div>' : p.finPendente ? '<div class="sm" style="color:var(--warn,#b7791f)">Envio ao Financeiro pendente</div>' : ''}</td>
     <td>${st(p.log, LOG_CLS[p.log])}</td>
     <td><div class="acts"><button class="link" data-ed="${p.id}">Editar</button><button class="link bad" data-del="${p.id}">Excluir</button></div></td>
   </tr>`).join('');
@@ -935,6 +936,7 @@ $('#pd-salvar').onclick = () => {
   if (itens.some(i => i.qtd <= 0)) return toast('Todo item precisa de quantidade maior que zero.', 'erro');
   const forn = padronizaNome($('#pd-forn').value), fin = $('#pd-fin').value, lg = $('#pd-log').value;
   const extra = { categoria: $('#pd-cat').value.trim() || 'Mercadorias', formaPag: $('#pd-pag').value, vencimento: $('#pd-venc').value, previsao: $('#pd-prev').value };
+  let novoPedido = null;
   if (editando) {
     const antes = editando.fornecedor, rec = {};
     editando.itens.forEach(i => rec[(i.sku || '') + '|' + i.nome] = i.receb || 0);
@@ -949,10 +951,12 @@ $('#pd-salvar').onclick = () => {
   } else {
     const num = proxNum();
     const p = { id: uid(), num, fornecedor: forn, itens: itens.map(i => ({ ...i, receb: 0 })), fin, log: lg, recebido: false, ...extra, emissao: hoje(), ...(fin === 'Pago' ? { pagoEm: hoje() } : {}) };
-    atualizaLogistica(p); S.pedidos.unshift(p); usaForn(forn);
-    log('Pedido ' + num + ' criado: ' + money(totalPedido(p)) + ', ' + (forn || 'sem fornecedor') + '.'); toast('Pedido ' + num + ' criado.', 'ok');
+    atualizaLogistica(p); S.pedidos.unshift(p); usaForn(forn); novoPedido = p;
+    log('Pedido ' + num + ' criado: ' + money(totalPedido(p)) + ', ' + (forn || 'sem fornecedor') + '.');
+    if (!autoEnvioLigado()) toast('Pedido ' + num + ' criado.', 'ok');
   }
   recalcUsos(); salvar(); $('#dlg-pedido').close(); renderTudo();
+  if (novoPedido) enviarAutoFin([novoPedido]);
 };
 
 /* --- CSV --- */
@@ -993,14 +997,16 @@ lerArquivo($('#f-csv'), texto => {
     const forn = padronizaNome(iForn >= 0 ? c[iForn] : '') || '(importado do Estoque)';
     (grupos[forn] = grupos[forn] || []).push({ sku, nome, qtd: Math.max(1, Math.round(sug)), preco: iPreco >= 0 ? num(c[iPreco]) : 0, receb: 0 });
   });
+  const criados = [];
   const nums = Object.keys(grupos).map(forn => {
     const n = proxNum();
     S.pedidos.unshift({ id: uid(), num: n, fornecedor: forn, itens: grupos[forn], fin: 'Pendente', log: 'Aguardando', recebido: false, emissao: hoje(), previsao: somaDias(hoje(), 7) });
-    usaForn(forn); return n;
+    criados.push(S.pedidos[0]); usaForn(forn); return n;
   });
   if (!nums.length) return toast('Nenhuma linha válida no CSV.', 'erro');
   log('CSV importado: ' + nums.length + ' pedido(s) (' + nums.join(', ') + ').');
   recalcUsos(); salvar(); renderTudo(); toast(nums.length + ' pedido(s) criado(s).', 'ok');
+  enviarAutoFin(criados);
 });
 $('#csv-modelo').onclick = () => {
   baixar('modelo_estoque.csv', csvLinha(['SKU', 'Nome', 'Quantidade', 'Preço', 'Fornecedor']) +
@@ -1547,11 +1553,11 @@ lerArquivo($('#f-est'), t => aplicarXmlEstoque(t, 'arquivo'));
 /* =============================================================================
    FINANCEIRO (Finanweb)
    ========================================================================== */
-function gerarSaida(){
+function gerarSaida(lista, silencioso){
   const c = S.config;
-  if (!c.empresa || !/^\d{14}$/.test(c.cnpj || '') || !c.usuario) { empresaOk(); return null; }
+  if (!c.empresa || !/^\d{14}$/.test(c.cnpj || '') || !c.usuario) { if (!silencioso) empresaOk(); return null; }
   const desp = [], pulados = [], conflitos = [];
-  S.pedidos.forEach(p => {
+  (lista || S.pedidos).forEach(p => {
     const doc = docForn(p.fornecedor), nome = txt120(p.fornecedor);
     if (refExterna(p.num) && !p.enviadoFin) { conflitos.push(p.num); return; }
     if (!nome || !doc) { pulados.push(p.num); return; }
@@ -1562,7 +1568,7 @@ function gerarSaida(){
     desp.push({ ref: p.num, status: p.fin === 'Pago' ? 'CONFIRMADO' : 'PENDENTE', nome, doc, cat: txt120(p.categoria) || 'Mercadorias', valor: totalPedido(p), pag: txt120(p.formaPag) || 'Boleto', emissao, venc });
   });
   if (conflitos.length) log('Financeiro: ' + conflitos.join(', ') + ' fora do envio, a referência já existe no Financeiro vinda de outro sistema Compras.');
-  if (!desp.length) { toast(conflitos.length ? 'Nenhum pedido enviável: as referências já existem no Financeiro (veja os logs).' : 'Nenhum pedido exportável: cadastre o CPF/CNPJ dos fornecedores.', 'erro'); return null; }
+  if (!desp.length) { if (silencioso) return { qtd: 0, pulados, conflitos }; toast(conflitos.length ? 'Nenhum pedido enviável: as referências já existem no Financeiro (veja os logs).' : 'Nenhum pedido exportável: cadastre o CPF/CNPJ dos fornecedores.', 'erro'); return null; }
   const tot = desp.reduce((s, d) => s + centavos(d.valor), 0);
   const json = { cabecalho: { empresa: c.empresa, cnpj: c.cnpj, origem: ORIGEM, dataArquivo: hoje(), usuario: c.usuario },
     despesas: desp.map(d => ({ referencia: d.ref, status: d.status, fornecedor: { nome: d.nome, documento: d.doc }, categoria: d.cat,
@@ -1602,12 +1608,13 @@ async function apiFin(caminho, metodo = 'GET', corpo){
   return { status: r.status, j };
 }
 // marca os pedidos enviados e registra no histórico (comum à API REST e ao SOAP)
-function marcarEnviadosFin(r, situacao, via, conteudo){
+function marcarEnviadosFin(r, situacao, via, conteudo, auto){
   const em = new Date().toISOString();
-  r.refs.forEach(ref => { const p = S.pedidos.find(x => x.num === ref); if (p) p.enviadoFin = { em, status: r.status[ref], situacao: situacao || '', via }; });
+  r.refs.forEach(ref => { const p = S.pedidos.find(x => x.num === ref); if (p) { p.enviadoFin = { em, status: r.status[ref], situacao: situacao || '', via }; delete p.finPendente; } });
   regXml({ direcao: 'enviado', via, xml: conteudo, contratoId: 'saida-v2' });
-  log('Financeiro: ' + resumoSaida(r) + ' enviadas ' + (via === 'soap' ? 'via SOAP (EnviarCompra)' : 'pela API') + ' (' + (situacao || 'ok') + ').');
+  log('Financeiro: ' + resumoSaida(r) + ' enviadas ' + (auto ? 'automaticamente ' : '') + (via === 'soap' ? 'via SOAP (EnviarCompra)' : 'pela API') + ' (' + (situacao || 'ok') + ').');
   salvar(); renderTudo();
+  if (auto) return toast('Pedido ' + r.refs.join(', ') + ' enviado ao Financeiro, aguardando aprovação.', 'ok');
   toast(r.qtd + ' compra(s) enviada(s) ao Financeiro, aguardando aprovação.' + (r.pulados.length ? ' ' + r.pulados.length + ' sem CPF/CNPJ ficaram de fora.' : ''), 'ok');
 }
 $('#fin-saida-api').onclick = async () => {
@@ -1621,6 +1628,41 @@ $('#fin-saida-api').onclick = async () => {
   } catch (e) { log('Financeiro: envio pela API falhou: ' + e.message); toast(e.message, 'erro'); }
   finally { b.disabled = false; }
 };
+
+/* --- envio automático: cada pedido novo vai sozinho ao Financeiro pela API REST ---
+   Só o pedido novo (nunca a lista inteira). Se falhar, o pedido fica marcado e é tentado de novo
+   na próxima sincronização com o Financeiro (a cada 5 min) ou ao criar outro pedido. */
+const autoEnvioLigado = () => { const f = fin(); return !!f.chave && f.autoEnvio !== false; };
+async function enviarAutoFin(novos){
+  if (!autoEnvioLigado()) return;
+  const lista = (novos || []).filter(p => p && !p.enviadoFin && !refExterna(p.num));
+  const pend = S.pedidos.filter(p => p.finPendente && !p.enviadoFin && !lista.includes(p));
+  const todos = [...lista, ...pend];
+  if (!todos.length) return;
+  todos.forEach(p => p.finPendente = true);
+  const c = S.config;
+  if (!c.empresa || !/^\d{14}$/.test(c.cnpj || '') || !c.usuario) {
+    log('Financeiro: ' + todos.map(p => p.num).join(', ') + ' não enviado(s) automaticamente: preencha os dados da empresa em Integrações.');
+    toast('Pedido salvo. Para ir ao Financeiro, preencha os dados da empresa em Integrações.', 'erro'); salvar(); return;
+  }
+  const r = gerarSaida(todos, true);
+  if (!r || !r.qtd) {
+    todos.forEach(p => delete p.finPendente);
+    if (r && r.pulados.length) { log('Financeiro: ' + r.pulados.join(', ') + ' não enviado(s) automaticamente: o fornecedor não tem CPF/CNPJ.'); toast('Pedido salvo, mas não foi ao Financeiro: cadastre o CPF/CNPJ do fornecedor.', 'erro'); }
+    salvar(); return;
+  }
+  try {
+    const { status, j } = await apiFin('/compras', 'POST', r.json);
+    if (status === 422 || j.ok === false) throw new Error('o Financeiro recusou: ' + (j.erro || 'HTTP ' + status));
+    if (status >= 400) throw new Error('HTTP ' + status + (j.erro ? ': ' + j.erro : ''));
+    todos.forEach(p => delete p.finPendente);
+    marcarEnviadosFin(r, j.situacao || String(status), 'api', JSON.stringify(r.json, null, 2), true);
+  } catch (e) {
+    const rede = e instanceof TypeError;
+    log('Financeiro: envio automático de ' + r.refs.join(', ') + ' falhou: ' + (rede ? 'sem resposta do Financeiro' : e.message) + '. Nova tentativa na próxima sincronização.');
+    toast('Pedido salvo, mas o envio ao Financeiro falhou. O sistema tenta de novo sozinho.', 'erro'); salvar(); renderTudo();
+  }
+}
 
 /* --- Webservice SOAP do Financeiro (Finanweb): SOAP 1.1 document/literal, mesma chave Bearer da API REST --- */
 const NS_FIN_SOAP = 'urn:finanweb:servico:1.0';
@@ -1851,7 +1893,7 @@ async function buscarPendenciasFin(manual){
     f.erroPend = e.message; salvar(); if (manual) toast(e.message, 'erro');
   } finally { buscandoPend = false; }
 }
-function sincronizarFin(manual){ buscarPendenciasFin(manual); buscarAvisosFin(manual); }
+function sincronizarFin(manual){ buscarPendenciasFin(manual); buscarAvisosFin(manual); if (S.pedidos.some(p => p.finPendente && !p.enviadoFin)) enviarAutoFin([]); }
 // sincroniza se a última busca for mais antiga que "ms" (ao entrar na tela Financeiro ou voltar para a aba)
 function finSeVelho(ms){
   const f = S.fin; if (!f || !f.chave || f.auto === false) return;
@@ -1939,7 +1981,7 @@ function renderIntegracoes(){
   $('#api-url').value = est().apiUrl || API_PADRAO;
   $('#api-key').value = est().apiKey || '';
   const f = fin();
-  $('#fin-url').value = f.url || FIN_PADRAO; $('#fin-chave').value = f.chave || ''; $('#fin-auto').checked = f.auto !== false;
+  $('#fin-url').value = f.url || FIN_PADRAO; $('#fin-chave').value = f.chave || ''; $('#fin-auto').checked = f.auto !== false; $('#fin-auto-envio').checked = f.autoEnvio !== false;
   $('#fin-status').textContent = !f.chave ? (apiC().admin ? 'Sem chave' : 'Sem chave. Já configurou em outro navegador? Cole a chave de administrador em API e contratos.') : f.erro ? 'Erro: ' + f.erro : f.ultimaBusca ? 'Última busca de avisos: ' + fmtDataHora(f.ultimaBusca) : '';
   $('#api-auto').checked = est().autoSaldo !== false;
   $('#api-auto-min').value = String(est().autoSaldoMin || 2);
@@ -1967,7 +2009,7 @@ $('#api-auto-min').onchange = e => { est().autoSaldoMin = Number(e.target.value)
 $('#fin-salvar').onclick = () => {
   const v = $('#fin-url').value.trim().replace(/\/+$/, '');
   if (v && !/^https?:\/\/\S+$/i.test(v)) return toast('Use um endereço com http:// ou https://', 'erro');
-  const f = fin(); f.url = v === FIN_PADRAO ? '' : v; f.chave = $('#fin-chave').value.trim(); f.auto = $('#fin-auto').checked; f.erro = '';
+  const f = fin(); f.url = v === FIN_PADRAO ? '' : v; f.chave = $('#fin-chave').value.trim(); f.auto = $('#fin-auto').checked; f.autoEnvio = $('#fin-auto-envio').checked; f.erro = '';
   salvar(); agendarAvisos(); enviarConfigServidor(); log('Financeiro: API configurada' + (f.chave ? ' com chave.' : ' sem chave.'));
   toast('Configuração do Financeiro salva.', 'ok'); $('#fin-status').textContent = f.chave ? 'Chave salva' : 'Sem chave';
   if (f.chave && f.auto !== false) sincronizarFin(false);
@@ -2261,7 +2303,7 @@ async function lerCaixa(manual){
    Assim as chaves do Financeiro e do Estoque e os dados da empresa não somem ao trocar de navegador. */
 function pacoteConfig(){
   const f = fin(), e = est();
-  return { fin: { url: f.url, chave: f.chave, auto: f.auto !== false }, estoque: { apiUrl: e.apiUrl, apiKey: e.apiKey || '', autoSaldo: e.autoSaldo !== false, autoSaldoMin: e.autoSaldoMin || 2 }, config: { ...S.config } };
+  return { fin: { url: f.url, chave: f.chave, auto: f.auto !== false, autoEnvio: f.autoEnvio !== false }, estoque: { apiUrl: e.apiUrl, apiKey: e.apiKey || '', autoSaldo: e.autoSaldo !== false, autoSaldoMin: e.autoSaldoMin || 2 }, config: { ...S.config } };
 }
 async function enviarConfigServidor(){
   if (!apiC().admin) return;
@@ -2275,7 +2317,7 @@ async function carregarConfigServidor(avisar){
     if (!c.atualizadoEm) { enviarConfigServidor(); return; }          // servidor vazio: sobe o que existe aqui
     if (apiC().configEm && c.atualizadoEm <= apiC().configEm) return;   // este navegador já está em dia
     const f = fin(), e = est();
-    if (c.fin) { if (c.fin.chave) f.chave = c.fin.chave; if ('url' in c.fin) f.url = c.fin.url || ''; if ('auto' in c.fin) f.auto = c.fin.auto; }
+    if (c.fin) { if (c.fin.chave) f.chave = c.fin.chave; if ('url' in c.fin) f.url = c.fin.url || ''; if ('auto' in c.fin) f.auto = c.fin.auto; if ('autoEnvio' in c.fin) f.autoEnvio = c.fin.autoEnvio; }
     if (c.estoque) { if ('apiUrl' in c.estoque) e.apiUrl = c.estoque.apiUrl || ''; if (c.estoque.apiKey) e.apiKey = c.estoque.apiKey;
       if ('autoSaldo' in c.estoque) e.autoSaldo = c.estoque.autoSaldo; if (c.estoque.autoSaldoMin) e.autoSaldoMin = c.estoque.autoSaldoMin; }
     if (c.config && c.config.empresa) S.config = { empresa: c.config.empresa, cnpj: c.config.cnpj, usuario: c.config.usuario };

@@ -96,7 +96,7 @@ async function rAcessos(req, res){
 }
 
 // configuração do painel: só a chave de administrador lê e grava (ex.: chave do Finanweb, chave do Estoque, dados da empresa)
-const CONFIG_PERMITIDA = { fin: ['url', 'chave', 'auto'], estoque: ['apiUrl', 'apiKey', 'autoSaldo', 'autoSaldoMin'], config: ['empresa', 'cnpj', 'usuario'] };
+const CONFIG_PERMITIDA = { fin: ['url', 'chave', 'auto', 'autoEnvio'], estoque: ['apiUrl', 'apiKey', 'autoSaldo', 'autoSaldoMin'], config: ['empresa', 'cnpj', 'usuario'] };
 async function rLerConfig(req, res){
   await autenticar(req, []);
   const v = await redis('GET', 'painel:config');
